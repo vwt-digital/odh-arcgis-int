@@ -103,7 +103,11 @@ list-item can be specified.
 
 #### Character set `optional`
 When just a part of the value must be included within the data, the attribute `character_set` can be used. This will 
-retrieve the characters between the defined character positions.
+retrieve the characters between the defined character positions. The attribute consists of a list with two integers; 
+the starting character position, and the ending character position:
+~~~text
+[character_start, character_end]
+~~~
 
 ###### Data
 ~~~json
@@ -117,11 +121,11 @@ retrieve the characters between the defined character positions.
 {
   "postcode": {
     "field": "address",
-    "character_set": [0, 5]
+    "character_set": [null, 5]
   },
   "city": {
     "field": "address",
-    "character_set": [6, -1]
+    "character_set": [6, null]
   }
 }
 ~~~
@@ -133,6 +137,8 @@ retrieve the characters between the defined character positions.
   "city": "Amsterdam"
 }
 ~~~
+
+> When the start or end of a value has to be specified, the value `None` or `null` can be used.
 
 #### Nested object `optional`
 When a nested object is needed, the field `_items` can be used. This ensure the function will create a nested object and

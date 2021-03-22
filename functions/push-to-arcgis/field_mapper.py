@@ -28,10 +28,15 @@ class FieldMapperService:
                 "character_set" in field_config
                 and len(field_config["character_set"]) == 2
             ):
-                character_start = int(field_config["character_set"][0])
-                character_end = int(field_config["character_set"][1])
+                character_start = field_config["character_set"][0]
+                character_end = field_config["character_set"][1]
 
-                value = value[character_start:character_end]
+                if character_start is None:
+                    value = value[: int(character_end)]
+                elif character_end is None:
+                    value = value[int(character_start) :]
+                else:
+                    value = value[int(character_start) : int(character_end)]
         except (KeyError, AttributeError, TypeError, IndexError):
             value = None
         finally:
