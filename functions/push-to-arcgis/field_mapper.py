@@ -121,10 +121,10 @@ class FieldMapperService:
 
         # Get nested data object if configured
         try:
-            if hasattr(config, "DATA_FIELD"):
+            if hasattr(config, "MAPPING_DATA_SOURCE"):
                 data_object = self.get_from_dict(
                     data=data_object,
-                    map_list=config.DATA_FIELD.split("/"),
+                    map_list=config.MAPPING_DATA_SOURCE.split("/"),
                     field_config={},
                 )
         except (ValueError, KeyError) as e:
@@ -135,14 +135,15 @@ class FieldMapperService:
         if not isinstance(data_object, list):
             data_object = [data_object]
 
-        # Create a mapped data objects based on the configuration
-        try:
-            formatted_data = []
-            for data in data_object:
-                mapped_data = self.map_data(config.FIELD_MAPPING, data)
+        # Create mapped data objects based on the configuration
+        formatted_data = []
+        for data in data_object:
+            try:
+                mapped_data = self.map_data(config.MAPPING_FIELDS, data)
+            except (ValueError, KeyError) as e:
+                logging.info(f"An error occurred during formatting data: {str(e)}")
+                continue
+            else:
                 formatted_data.append(mapped_data)
-        except (ValueError, KeyError) as e:
-            logging.info(f"An error occurred during formatting data: {str(e)}")
-            return None
-        else:
-            return formatted_data
+
+        return formatted_data

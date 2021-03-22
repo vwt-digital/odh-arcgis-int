@@ -4,12 +4,14 @@ This function is used as an interface between the Operational Data Hub and an Ar
 Pub/Sub messages, create a new object based on mapping configuration and publishes them towards a feature server.
 
 ## Configuration
-These variables have to be defined within the environment of the function:
+These variables have to be defined within the environment of the function, see [config.example.py](config.example.py) for an example:
 - `GIS_FEATURE_SERVICE_AUTHENTICATION` `required` `[dict]`: A dictionary containing the authentication values for the 
   GIS feature service;
 - `GIS_FEATURE_SERVICE` `required` `[string]`: The URL of the GIS feature service;
-- `DATA_FIELD` `[string]`: The mapping of the nested data object;
-- `FIELD_MAPPING` `required` `[dict]`: The field mapping (see [Field Mapping](#field-mapping)).
+- `MAPPING_DATA_SOURCE` `[string]`: The field of the nested data object;
+- `MAPPING_ATTACHMENTS` `[list]`: A list of all mapped fields with an attachment in the form of a GCS URI 
+  (`gs://[BUCKET_NAME]/[FILE_NAME]`);
+- `MAPPING_FIELDS` `required` `[dict]`: The field mapping (see [Field Mapping](#field-mapping)).
 
 ### Field mapping
 This function supports a field mapping for transforming data into GIS objects. Within each field the following 
