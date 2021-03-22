@@ -101,11 +101,9 @@ list-item can be specified.
 }
 ~~~
 
-#### Part of value `optional`
-When just a part of the value must be included within the data, there are two fields that can be specified:
-`characters_to` and `characters_from`. The `characters_to` attribute will retrieve the characters from the beginning of
-the value until the specified amount. The `characters_from` will retrieve the characters from the specified amount 
-until the end of the string.
+#### Character set `optional`
+When just a part of the value must be included within the data, the attribute `character_set` can be used. This will 
+retrieve the characters between the defined character positions.
 
 ###### Data
 ~~~json
@@ -119,11 +117,11 @@ until the end of the string.
 {
   "postcode": {
     "field": "address",
-    "character_to": 5
+    "character_set": [0, 5]
   },
   "city": {
     "field": "address",
-    "character_from": 6
+    "character_set": [6, -1]
   }
 }
 ~~~

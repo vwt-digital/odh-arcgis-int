@@ -24,11 +24,14 @@ class FieldMapperService:
             if "list_item" in field_config:
                 value = value[int(field_config["list_item"])]
 
-            if "characters_to" in field_config:
-                value = value[: int(field_config["characters_to"])]
+            if (
+                "character_set" in field_config
+                and len(field_config["character_set"]) == 2
+            ):
+                character_start = int(field_config["character_set"][0])
+                character_end = int(field_config["character_set"][1])
 
-            if "characters_from" in field_config:
-                value = value[int(field_config["characters_from"]):]
+                value = value[character_start:character_end]
         except (KeyError, AttributeError, TypeError, IndexError):
             value = None
         finally:
