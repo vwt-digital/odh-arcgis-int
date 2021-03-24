@@ -8,14 +8,34 @@ These variables have to be defined within the environment of the function, see [
 - `GIS_FEATURE_SERVICE_AUTHENTICATION` `required` `[dict]`: A dictionary containing the authentication values for the 
   GIS feature service;
 - `GIS_FEATURE_SERVICE` `required` `[string]`: The URL of the GIS feature service;
-- `MAPPING_DATA_SOURCE` `[string]`: The field of the nested data object;
-- `MAPPING_ATTACHMENTS` `[list]`: A list of all mapped fields with an attachment in the form of a GCS URI 
-  (`gs://[BUCKET_NAME]/[FILE_NAME]`);
-- `MAPPING_FIELDS` `required` `[dict]`: The field mapping (see [Field Mapping](#field-mapping)).
+- `MAPPING_CONFIG` `required` `[dict]`: The field of the nested data object 
+  (see [mapping configuration](#mapping-configuration)).
+
+### Mapping configuration
+This function supports a field mapping for transforming data into GIS objects. The mapping is based on the incoming
+Pub/Sub Subscription name, that is sent within the incoming message. To allow multiple Pub/Sub Subscriptions to use this
+function, each of them must have a valid configuration (as shown below).
+
+~~~python
+MAPPING_CONFIG = {
+  "pubsub-subscription-1": {
+    "mapping": {...}
+  },
+  "pubsub-subscription-2": {
+    "mapping": {...}
+  }
+}
+~~~
+
+The following attributes can (and some must) be defined for each incoming subscription:
+- `data_source` `[string]`: The (nested) data field (format: `field/sub-field/sub-sub-field`);
+- `attachment_fields` `[list]`: A list of fields containing an attachment that will be sent towards ArcGIS 
+  (format: `field/sub-field/sub-sub-field`);
+- `mapping` `required` `[dict]`: The field mapping for the transformation of an incoming message towards an ArcGIS 
+  object (see [field mapping](#field-mapping)).
 
 ### Field mapping
-This function supports a field mapping for transforming data into GIS objects. Within each field the following 
-attributes can be used to create nested fields, retrieve a value from a list or get part of a string.
+For the field mapping, the attributes below can be used.
 
 #### Field `required`
 The most important part of the mapping is the `field` attribute. This will specify where in the data the value must be

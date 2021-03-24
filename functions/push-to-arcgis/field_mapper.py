@@ -2,10 +2,11 @@ import logging
 import operator
 from functools import reduce
 
-import config
-
 
 class FieldMapperService:
+    def __init__(self, sub_config):
+        self.sub_config = sub_config
+
     @staticmethod
     def transform_value(field_name, field_config, value):
         """
@@ -141,10 +142,10 @@ class FieldMapperService:
 
         # Get nested data object if configured
         try:
-            if hasattr(config, "MAPPING_DATA_SOURCE"):
+            if "data_source" in self.sub_config:
                 data_object = self.get_from_dict(
                     data=data_object,
-                    map_list=config.MAPPING_DATA_SOURCE.split("/"),
+                    map_list=self.sub_config["data_source"].split("/"),
                     field_config={},
                 )
         except (ValueError, KeyError) as e:
@@ -159,7 +160,7 @@ class FieldMapperService:
         formatted_data = []
         for data in data_object:
             try:
-                mapped_data = self.map_data(config.MAPPING_FIELDS, data)
+                mapped_data = self.map_data(self.sub_config["mapping"], data)
             except (ValueError, KeyError) as e:
                 logging.info(f"An error occurred during formatting data: {str(e)}")
                 continue
@@ -182,10 +183,10 @@ class FieldMapperService:
         item_attachments = {}
 
         if (
-            hasattr(config, "MAPPING_ATTACHMENTS")
-            and len(config.MAPPING_ATTACHMENTS) > 0
+            "attachment_fields" in self.sub_config
+            and len(self.sub_config["attachment_fields"]) > 0
         ):
-            for field in config.MAPPING_ATTACHMENTS:
+            for field in self.sub_config["attachment_fields"]:
                 field_mapping = field.split("/")
 
                 # Get current attachment value

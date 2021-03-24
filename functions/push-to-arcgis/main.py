@@ -25,31 +25,41 @@ def push_to_arcgis(request):
     try:
         envelope = json.loads(request.data.decode("utf-8"))
         logging.info(envelope)
+        _subscription = envelope["subscription"].split("/")[-1]
         _bytes = base64.b64decode(envelope["message"]["data"])
         _message = json.loads(_bytes)
     except Exception as e:
         logging.error(f"Extraction of subscription failed: {str(e)}")
         return "Service Unavailable", 503
     else:
-        process(data=_message)
+        process(data=_message, subscription=_subscription)
 
     return "No Content", 204
 
 
-def process(data):
+def process(data, subscription):
     """
     Process the message.
 
     :param data: Data object
     :type data: dict
+    :param subscription: Pub/Sub Subscription name
+    :type subscription: str
     """
 
-    if not hasattr(config, "MAPPING_FIELDS"):
-        logging.error("Function is missing required 'MAPPING_FIELDS' configuration")
+    if not hasattr(
+        config, "MAPPING_CONFIG"
+    ) or "mapping" not in config.MAPPING_CONFIG.get(subscription, {}):
+        logging.error(
+            f"Function is missing required mapping configuration for subscription '{subscription}'"
+        )
         return "Bad Gateway", 502
 
+    # Retrieve current subscription configuration
+    sub_config = config.MAPPING_CONFIG.get(subscription)
+
     # Create a list of mapped data
-    mapping_service = FieldMapperService()
+    mapping_service = FieldMapperService(sub_config=sub_config)
     formatted_data = mapping_service.get_mapped_data(data_object=data)
 
     if not formatted_data:
