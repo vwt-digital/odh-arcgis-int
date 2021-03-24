@@ -9,12 +9,12 @@ class FieldMapperService:
         self.sub_config = sub_config
 
     @staticmethod
-    def transform_value(field_name, field_config, value):
+    def transform_value(field_mapping, field_config, value):
         """
         Transform a value based on configuration
 
-        :param field_name: Name of the current field
-        :type field_name: str
+        :param field_mapping: Mapping of the current field
+        :type field_mapping: str
         :param field_config: Configuration for transformation
         :type field_config: dict
         :param value: Value to transform
@@ -39,11 +39,14 @@ class FieldMapperService:
                     value = value[int(character_start) :]
                 else:
                     value = value[int(character_start) : int(character_end)]
-        except (KeyError, AttributeError, TypeError, IndexError):
+        except (KeyError, AttributeError, TypeError, IndexError) as e:
+            logging.info(
+                f"Value transformation for field '{field_mapping}' failed due to: {str(e)}"
+            )
             value = None
         finally:
             if field_config.get("required", False) and not value:
-                raise ValueError(f"Required field '{field_name}' is empty")
+                raise ValueError(f"Required field '{field_mapping}' is empty")
 
             return value
 
@@ -69,7 +72,7 @@ class FieldMapperService:
             pass
         finally:
             return self.transform_value(
-                field_name="/".join(map_list), field_config=field_config, value=value
+                field_mapping="/".join(map_list), field_config=field_config, value=value
             )
 
     @staticmethod
