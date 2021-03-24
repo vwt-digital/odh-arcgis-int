@@ -4,10 +4,12 @@ import logging
 
 import config
 from field_mapper import FieldMapperService
-
-# from gis_service import GISService
+from gis_service import GISService
+from storage_service import StorageService
 
 logging.getLogger().setLevel(logging.INFO)
+gis_service = GISService()
+storage_service = StorageService()
 
 
 def push_to_arcgis(request):
@@ -21,23 +23,22 @@ def push_to_arcgis(request):
     """
 
     try:
-        # envelope = json.loads(request.data.decode("utf-8"))
-        # logging.info(envelope)
-        # _bytes = base64.b64decode(envelope["message"]["data"])
-        # _message = json.loads(_bytes)
-        _message = json.loads(open("payload.json", "r").read())
+        envelope = json.loads(request.data.decode("utf-8"))
+        logging.info(envelope)
+        _bytes = base64.b64decode(envelope["message"]["data"])
+        _message = json.loads(_bytes)
     except Exception as e:
         logging.error(f"Extraction of subscription failed: {str(e)}")
         return "Service Unavailable", 503
     else:
-        publish_message(data=_message)
+        process(data=_message)
 
     return "No Content", 204
 
 
-def publish_message(data):
+def process(data):
     """
-    Publish the unpacked message towards an ArcGIS feature service.
+    Process the message.
 
     :param data: Data object
     :type data: dict
@@ -45,23 +46,54 @@ def publish_message(data):
 
     if not hasattr(config, "MAPPING_FIELDS"):
         logging.error("Function is missing required 'MAPPING_FIELDS' configuration")
-        return
+        return "Bad Gateway", 502
 
     # Create a list of mapped data
-    formatted_data = FieldMapperService().get_mapped_data(data_object=data)
+    mapping_service = FieldMapperService()
+    formatted_data = mapping_service.get_mapped_data(data_object=data)
 
     if not formatted_data:
         logging.info("No data to be published towards ArcGIS")
-        return
+        return "No Content", 204
 
-    print(json.dumps(formatted_data, indent=4))
+    # Publish data to GIS server
+    for item in formatted_data:
+        # Extract attachments from object
+        item, item_attachments = mapping_service.extract_attachments(data_object=item)
 
-    # # Publish data to GIS server
-    # if len(formatted_data) > 0:
-    #     gis_service = GISService()
-    #
-    #     for item in formatted_data:
-    #         gis_service.add_object_to_feature_layer(item)
+        # # Upload feature to ArcGIS
+        feature_id = gis_service.add_object_to_feature_layer(item)
+
+        # Upload attachments and update feature
+        if len(item_attachments) > 0:
+            logging.info(f"Found {len(item_attachments)} attachments to upload")
+            updated_attachment = False
+
+            for field in item_attachments:
+                # Get attachment content
+                file_type, file_name, file_content = storage_service.get_image(
+                    item_attachments[field]
+                )
+
+                if not file_content:
+                    continue
+
+                # Upload attachment to feature object
+                attachment_id = gis_service.upload_attachment_to_feature_layer(
+                    feature_id, file_type, file_name, file_content
+                )
+
+                # Add attachment ID to correct field
+                item = mapping_service.set_in_dict(
+                    data=item, map_list=field.split("/"), value=int(attachment_id)
+                )
+                updated_attachment = True
+
+            # Update feature object with attachment IDs
+            if updated_attachment:
+                gis_service.update_object_to_feature_layer(item, feature_id)
+
+    return "No Content", 204
 
 
 if __name__ == "__main__":

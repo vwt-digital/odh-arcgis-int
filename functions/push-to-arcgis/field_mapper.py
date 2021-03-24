@@ -53,8 +53,6 @@ class FieldMapperService:
         :type data: dict
         :param map_list: List of mapping fields
         :type map_list: list
-        :param field_name: Name of the current field
-        :type field_name: str
         :param field_config: Configuration for transformation
         :type field_config: dict
 
@@ -69,6 +67,28 @@ class FieldMapperService:
             return self.transform_value(
                 field_name="/".join(map_list), field_config=field_config, value=value
             )
+
+    @staticmethod
+    def set_in_dict(data, map_list, value):
+        """
+        Set item in nested dictionary
+
+        :param data: Data
+        :type data: dict
+        :param map_list: List of mapping fields
+        :type map_list: list
+        :param value: The value to update with
+
+        :return: Data
+        :rtype: dict
+        """
+
+        try:
+            reduce(operator.getitem, map_list[:-1], data)[map_list[-1]] = value
+        except (KeyError, AttributeError, TypeError):
+            pass
+        finally:
+            return data
 
     def map_data(self, mapping, data):
         """
@@ -147,3 +167,35 @@ class FieldMapperService:
                 formatted_data.append(mapped_data)
 
         return formatted_data
+
+    def extract_attachments(self, data_object):
+        """
+        Extract the attachments from the mapped data
+
+        :param data_object: Data object
+        :type data_object: dict
+
+        :return: Data and extracted attachments
+        :rtype: (dict, dict)
+        """
+
+        item_attachments = {}
+
+        if (
+            hasattr(config, "MAPPING_ATTACHMENTS")
+            and len(config.MAPPING_ATTACHMENTS) > 0
+        ):
+            for field in config.MAPPING_ATTACHMENTS:
+                field_mapping = field.split("/")
+
+                # Get current attachment value
+                item_attachments[field] = self.get_from_dict(
+                    data=data_object, map_list=field_mapping, field_config={}
+                )
+
+                # Remove current attachment value before update
+                data_object = self.set_in_dict(
+                    data=data_object, map_list=field_mapping, value=None
+                )
+
+        return data_object, item_attachments
