@@ -32,9 +32,8 @@ def push_to_arcgis(request):
         logging.error(f"Extraction of subscription failed: {str(e)}")
         return "Service Unavailable", 503
     else:
-        process(data=_message, subscription=_subscription)
-
-    return "No Content", 204
+        resp = process(data=_message, subscription=_subscription)
+        return resp
 
 
 def process(data, subscription):

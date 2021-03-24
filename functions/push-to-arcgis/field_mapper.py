@@ -1,3 +1,4 @@
+import json
 import logging
 import operator
 from functools import reduce
@@ -60,11 +61,13 @@ class FieldMapperService:
         :return: Value
         """
 
+        value = None
+
         try:
             value = reduce(operator.getitem, map_list, data)
         except (KeyError, AttributeError, TypeError):
-            return None
-        else:
+            pass
+        finally:
             return self.transform_value(
                 field_name="/".join(map_list), field_config=field_config, value=value
             )
@@ -141,15 +144,14 @@ class FieldMapperService:
         """
 
         # Get nested data object if configured
-        try:
-            if "data_source" in self.sub_config:
-                data_object = self.get_from_dict(
-                    data=data_object,
-                    map_list=self.sub_config["data_source"].split("/"),
-                    field_config={},
-                )
-        except (ValueError, KeyError) as e:
-            logging.info(f"An error occurred during retrieval of data: {str(e)}")
+        if "data_source" in self.sub_config:
+            data_object = self.get_from_dict(
+                data=data_object,
+                map_list=self.sub_config["data_source"].split("/"),
+                field_config={},
+            )
+
+        if not data_object:
             return None
 
         # Check if data is of type list, otherwise create a list
@@ -163,6 +165,7 @@ class FieldMapperService:
                 mapped_data = self.map_data(self.sub_config["mapping"], data)
             except (ValueError, KeyError) as e:
                 logging.info(f"An error occurred during formatting data: {str(e)}")
+                logging.debug(json.dumps(data))
                 continue
             else:
                 formatted_data.append(mapped_data)
