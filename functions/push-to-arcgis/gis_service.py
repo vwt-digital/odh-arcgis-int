@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import sys
 
 from config import GIS_FEATURE_SERVICE, GIS_FEATURE_SERVICE_AUTHENTICATION
 from requests_retry_session import get_requests_session
@@ -32,10 +33,15 @@ class GISService:
             "referer": GIS_FEATURE_SERVICE_AUTHENTICATION["referer"],
         }
 
-        data = self.requests_session.post(
-            GIS_FEATURE_SERVICE_AUTHENTICATION["url"], data
-        ).json()
-        return data["token"]
+        try:
+            data = self.requests_session.post(
+                GIS_FEATURE_SERVICE_AUTHENTICATION["url"], data
+            ).json()
+        except json.decoder.JSONDecodeError as e:
+            logging.error(f"An error occurred when retrieving ArcGIS token: {str(e)}")
+            sys.exit(1)
+        else:
+            return data["token"]
 
     def add_object_to_feature_layer(self, gis_object):
         """
