@@ -3,13 +3,15 @@ import logging
 import os
 import sys
 
-from config import GIS_FEATURE_SERVICE, GIS_FEATURE_SERVICE_AUTHENTICATION
 from requests_retry_session import get_requests_session
 from utils import get_secret
 
 
 class GISService:
-    def __init__(self):
+    def __init__(self, arcgis_config):
+        self.arcgis_auth = arcgis_config.get("authentication")
+        self.arcgis_url = arcgis_config.get("feature_url")
+
         self.requests_session = get_requests_session(
             retries=3, backoff=15, status_forcelist=(404, 500, 502, 503, 504)
         )
@@ -23,20 +25,25 @@ class GISService:
         :rtype: str
         """
 
-        data = {
-            "f": "json",
-            "username": GIS_FEATURE_SERVICE_AUTHENTICATION["username"],
-            "password": get_secret(
-                os.environ["PROJECT_ID"], GIS_FEATURE_SERVICE_AUTHENTICATION["secret"]
-            ),
-            "request": GIS_FEATURE_SERVICE_AUTHENTICATION["request"],
-            "referer": GIS_FEATURE_SERVICE_AUTHENTICATION["referer"],
-        }
-
         try:
+            request_data = {
+                "f": "json",
+                "username": self.arcgis_auth["username"],
+                "password": get_secret(
+                    os.environ["PROJECT_ID"], self.arcgis_auth["secret"]
+                ),
+                "request": self.arcgis_auth["request"],
+                "referer": self.arcgis_auth["referer"],
+            }
+
             data = self.requests_session.post(
-                GIS_FEATURE_SERVICE_AUTHENTICATION["url"], data
+                self.arcgis_auth["url"], request_data
             ).json()
+        except KeyError as e:
+            logging.error(
+                f"Function is missing authentication configuration for retrieving ArcGIS token: {str(e)}"
+            )
+            sys.exit(1)
         except json.decoder.JSONDecodeError as e:
             logging.error(f"An error occurred when retrieving ArcGIS token: {str(e)}")
             sys.exit(1)
@@ -56,7 +63,7 @@ class GISService:
 
         data = {"adds": json.dumps([gis_object]), "f": "json", "token": self.token}
 
-        r = self.requests_session.post(f"{GIS_FEATURE_SERVICE}/applyEdits", data=data)
+        r = self.requests_session.post(f"{self.arcgis_url}/applyEdits", data=data)
 
         try:
             response = r.json()
@@ -90,7 +97,7 @@ class GISService:
 
         data = {"updates": json.dumps([gis_object]), "f": "json", "token": self.token}
 
-        r = self.requests_session.post(f"{GIS_FEATURE_SERVICE}/applyEdits", data=data)
+        r = self.requests_session.post(f"{self.arcgis_url}/applyEdits", data=data)
 
         try:
             response = r.json()
@@ -132,7 +139,7 @@ class GISService:
         files = [("attachment", (file_name, file_content, file_type))]
 
         r = self.requests_session.post(
-            f"{GIS_FEATURE_SERVICE}/{feature_id}/addAttachment", data=data, files=files
+            f"{self.arcgis_url}/{feature_id}/addAttachment", data=data, files=files
         )
 
         try:

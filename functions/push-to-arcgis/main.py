@@ -8,7 +8,6 @@ from gis_service import GISService
 from storage_service import StorageService
 
 logging.getLogger().setLevel(logging.INFO)
-gis_service = GISService()
 storage_service = StorageService()
 
 
@@ -46,9 +45,11 @@ def process(data, subscription):
     :type subscription: str
     """
 
-    if not hasattr(
-        config, "MAPPING_CONFIG"
-    ) or "mapping" not in config.MAPPING_CONFIG.get(subscription, {}):
+    if (
+        not hasattr(config, "MAPPING_CONFIG")
+        or "mapping" not in config.MAPPING_CONFIG.get(subscription, {})
+        or "arcgis" not in config.MAPPING_CONFIG.get(subscription, {})
+    ):
         logging.error(
             f"Function is missing required mapping configuration for subscription '{subscription}'"
         )
@@ -64,6 +65,8 @@ def process(data, subscription):
     if not formatted_data:
         logging.info("No data to be published towards ArcGIS")
         return "No Content", 204
+
+    gis_service = GISService(arcgis_config=sub_config.get("arcgis"))
 
     # Publish data to GIS server
     for item in formatted_data:
