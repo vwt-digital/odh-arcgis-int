@@ -5,8 +5,21 @@ from functools import reduce
 
 
 class FieldMapperService:
-    def __init__(self, sub_config):
-        self.sub_config = sub_config
+    def __init__(self, mapping_fields, mapping_data_source, mapping_attachments):
+        """
+        Initiates the FieldMapperService
+
+        :param mapping_fields: The field mapping for this instance
+        :type mapping_fields: dict
+        :param mapping_data_source: The data source field
+        :type mapping_data_source: str
+        :param mapping_attachments: A list of attachment fields
+        :type mapping_attachments: list
+        """
+
+        self.mapping_fields = mapping_fields
+        self.mapping_data_source = mapping_data_source
+        self.mapping_attachments = mapping_attachments
 
     @staticmethod
     def transform_value(field_mapping, field_config, value):
@@ -147,10 +160,10 @@ class FieldMapperService:
         """
 
         # Get nested data object if configured
-        if "data_source" in self.sub_config:
+        if self.mapping_data_source:
             data_object = self.get_from_dict(
                 data=data_object,
-                map_list=self.sub_config["data_source"].split("/"),
+                map_list=self.mapping_data_source.split("/"),
                 field_config={},
             )
 
@@ -165,7 +178,7 @@ class FieldMapperService:
         formatted_data = []
         for data in data_object:
             try:
-                mapped_data = self.map_data(self.sub_config["mapping"], data)
+                mapped_data = self.map_data(self.mapping_fields, data)
             except (ValueError, KeyError) as e:
                 logging.info(f"An error occurred during formatting data: {str(e)}")
                 logging.debug(json.dumps(data))
@@ -188,11 +201,8 @@ class FieldMapperService:
 
         item_attachments = {}
 
-        if (
-            "attachment_fields" in self.sub_config
-            and len(self.sub_config["attachment_fields"]) > 0
-        ):
-            for field in self.sub_config["attachment_fields"]:
+        if self.mapping_attachments and len(self.mapping_attachments) > 0:
+            for field in self.mapping_attachments:
                 field_mapping = field.split("/")
 
                 # Get current attachment value

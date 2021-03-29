@@ -8,9 +8,18 @@ from utils import get_secret
 
 
 class GISService:
-    def __init__(self, arcgis_config):
-        self.arcgis_auth = arcgis_config.get("authentication")
-        self.arcgis_url = arcgis_config.get("feature_url")
+    def __init__(self, arcgis_auth, arcgis_url):
+        """
+        Initiates the GISService
+
+        :param arcgis_auth: The ArcGIS authentication object
+        :type arcgis_auth: dict
+        :param arcgis_url: The ArcGIS feature layer URL
+        :type arcgis_url: str
+        """
+
+        self.arcgis_auth = arcgis_auth
+        self.arcgis_url = arcgis_url
 
         self.requests_session = get_requests_session(
             retries=3, backoff=15, status_forcelist=(404, 500, 502, 503, 504)

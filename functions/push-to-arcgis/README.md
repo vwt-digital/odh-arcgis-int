@@ -3,50 +3,29 @@
 This function is used as an interface between the Operational Data Hub and an ArcGIS server. The function will process
 Pub/Sub messages, create a new object based on mapping configuration and publishes them towards a feature server.
 
-### Configuration
-This function supports a field mapping for transforming data into GIS objects. The mapping is based on the incoming
-Pub/Sub Subscription name, that is sent within the incoming message. To allow multiple Pub/Sub Subscriptions to use this
-function, each of them must have a valid configuration (as shown below, see [config.example.py](config.example.py) for
-an example).
-
-~~~python
-MAPPING_CONFIG = {
-    "pubsub-subscription-1": {
-        "arcgis": {...},
-        "mapping": {...}
-    },
-    "pubsub-subscription-2": {
-        "arcgis": {...},
-        "mapping": {...}
-    }
-}
-~~~
-
-The following attributes can (and some must) be defined for each incoming subscription:
-
-- `arcgis` `required` `[dict]`: A dictionary containing the authentication values for the GIS feature service 
+## Configuration
+This function supports a field mapping for transforming data into GIS objects. The mapping is based on the following
+configuration (see [config.example.py](config.example.py) for an example):
+- `ARCGIS_AUTHENTICATION` `required` `[dict]`: A dictionary containing the authentication values for the GIS feature service 
   (see [ArcGIS authentication](#arcgis-authentication));
-- `attachment_fields` `[list]`: A list of fields containing an attachment that will be sent towards ArcGIS
+- `ARCGIS_FEATURE_URL` `required` `[str]`: A string containing the ArcGIS feature layer URL;
+- `MAPPING_ATTACHMENT_FIELDS` `[list]`: A list of fields containing an attachment that will be sent towards ArcGIS
   (format: `field/sub-field/sub-sub-field`);
-- `data_source` `[string]`: The (nested) data field (format: `field/sub-field/sub-sub-field`);
-- `mapping` `required` `[dict]`: The field mapping for the transformation of an incoming message towards an ArcGIS
-  object (see [field mapping](#field-mapping)).
+- `MAPPING_DATA_SOURCE` `[string]`: The (nested) data field (format: `field/sub-field/sub-sub-field`);
+- `MAPPING_FIELD_CONFIG` `required` `[dict]`: The field mapping for the transformation of an incoming message towards
+  an ArcGIS object (see [field mapping](#field-mapping)).
 
 ### ArcGIS authentication
 Before this function can post new data towards ArcGIS, first a token has to be retrieved. This is done based on some
-ArcGIS configuration. The `arcgis` attribute within the mapping config of each subscription must be contain the
-following data:
+ArcGIS configuration. The `ARCGIS_AUTHENTICATION` attribute within the configuration must contain the following data:
 
 ~~~json
 {
-  "authentication": {
-    "url": "The url for the token request",
-    "username": "The username for the request",
-    "secret": "The GCP Secret Manager secret name containing the secret value for the request",
-    "request": "The name of the request for retrieving a token",
-    "referer": "The referer of the request"
-  },
-  "feature_url": "The URL towards the correct feature service"
+  "url": "The url for the token request",
+  "username": "The username for the request",
+  "secret": "The GCP Secret Manager secret name containing the secret value for the request",
+  "request": "The name of the request for retrieving a token",
+  "referer": "The referer of the request"
 }
 ~~~
 

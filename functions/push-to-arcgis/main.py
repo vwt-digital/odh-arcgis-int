@@ -46,27 +46,39 @@ def process(data, subscription):
     """
 
     if (
-        not hasattr(config, "MAPPING_CONFIG")
-        or "mapping" not in config.MAPPING_CONFIG.get(subscription, {})
-        or "arcgis" not in config.MAPPING_CONFIG.get(subscription, {})
+        not hasattr(config, "MAPPING_FIELD_CONFIG")
+        or not hasattr(config, "ARCGIS_AUTHENTICATION")
+        or not hasattr(config, "ARCGIS_FEATURE_URL")
     ):
         logging.error(
-            f"Function is missing required mapping configuration for subscription '{subscription}'"
+            f"Function is missing required configuration for subscription '{subscription}'"
         )
         return "Bad Gateway", 502
 
-    # Retrieve current subscription configuration
-    sub_config = config.MAPPING_CONFIG.get(subscription)
+    # Retrieve current mapping configuration
+    mapping_fields = config.MAPPING_FIELD_CONFIG  # Required configuration
+    mapping_data_source = (
+        config.MAPPING_DATA_SOURCE if hasattr(config, "MAPPING_DATA_SOURCE") else None
+    )
+    mapping_attachments = (
+        config.MAPPING_ATTACHMENT_FIELDS
+        if hasattr(config, "MAPPING_ATTACHMENT_FIELDS")
+        else None
+    )
+    arcgis_auth = config.ARCGIS_AUTHENTICATION  # Required configuration
+    arcgis_url = config.ARCGIS_FEATURE_URL  # Required configuration
 
     # Create a list of mapped data
-    mapping_service = FieldMapperService(sub_config=sub_config)
+    mapping_service = FieldMapperService(
+        mapping_fields, mapping_data_source, mapping_attachments
+    )
     formatted_data = mapping_service.get_mapped_data(data_object=data)
 
     if not formatted_data:
         logging.info("No data to be published towards ArcGIS")
         return "No Content", 204
 
-    gis_service = GISService(arcgis_config=sub_config.get("arcgis"))
+    gis_service = GISService(arcgis_auth, arcgis_url)
 
     # Publish data to GIS server
     for item in formatted_data:
