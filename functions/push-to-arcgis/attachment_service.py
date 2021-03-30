@@ -13,12 +13,12 @@ class AttachmentService:
 
     def get(self, attachment_url):
         """
-        Get an image
+        Get an attachment
 
-        :param attachment_url: Image URL
+        :param attachment_url: Attachment URL
         :type attachment_url: str
 
-        :return: Content-type, File name, File content
+        :return: File content-type, File name, File content
         :rtype: (str, str, str)
         """
 
