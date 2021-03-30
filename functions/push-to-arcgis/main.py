@@ -3,12 +3,12 @@ import json
 import logging
 
 import config
+from attachment_service import AttachmentService
 from field_mapper import FieldMapperService
 from gis_service import GISService
-from storage_service import StorageService
 
 logging.getLogger().setLevel(logging.INFO)
-storage_service = StorageService()
+attachment_service = AttachmentService()
 
 
 def push_to_arcgis(request):
@@ -95,7 +95,7 @@ def process(data, subscription):
 
             for field in item_attachments:
                 # Get attachment content
-                file_type, file_name, file_content = storage_service.get_image(
+                file_type, file_name, file_content = attachment_service.get(
                     item_attachments[field]
                 )
 
