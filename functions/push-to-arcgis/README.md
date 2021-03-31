@@ -8,16 +8,18 @@ This function supports a field mapping for transforming data into GIS objects. T
 configuration (see [config.example.py](config.example.py) for an example):
 - `ARCGIS_AUTHENTICATION` `required` `[dict]`: A dictionary containing the authentication values for the GIS feature service 
   (see [ArcGIS authentication](#arcgis-authentication));
-- `EXISTENCE_CHECK` `[string]`: Existence check type for incoming features (see [Existence check](#existence-check));
 - `ARCGIS_FEATURE_URL` `required` `[str]`: A string containing the ArcGIS feature layer URL;
 - `ARCGIS_FEATURE_ID` `required` `[str]`: A string containing the ArcGIS feature ID (used for the [Existence check](#existence-check));
-- `MAPPING_ATTACHMENT_FIELDS` `[list]`: A list of fields containing an attachment that will be sent towards ArcGIS
-  (format: `field/sub-field/sub-sub-field`);
-- `MAPPING_DATA_SOURCE` `[string]`: The (nested) data field (format: `field/sub-field/sub-sub-field`);
-- `MAPPING_FIELD_CONFIG` `required` `[dict]`: The field mapping for the transformation of an incoming message towards
-  an ArcGIS object (see [field mapping](#field-mapping));
+- `EXISTENCE_CHECK` `[string]`: Existence check type for incoming features (see [Existence check](#existence-check));
+- `MESSAGE_DATA_SOURCE` `[string]`: The (nested) data field within the incoming message (format: `field/sub-field/sub-sub-field`);
 - `MAPPING_ID_FIELD` `required` `[string]`: The (nested) identifier field for each object 
-  (format: `field/sub-field/sub-sub-field`).
+  (format: `field/sub-field/sub-sub-field`);
+- `MAPPING_ATTACHMENTS` `[list]`: A list of fields containing an attachment that will be sent towards ArcGIS
+  (format: `field/sub-field/sub-sub-field`);
+- `MAPPING_COORDINATES` `required`  `[string]`: The (nested) data field within the incoming message containing the 
+  coordinates (must be a list of two coordinates, format: `field/sub-field/sub-sub-field`);
+- `MAPPING_ATTRIBUTES` `required` `[dict]`: The field mapping for the transformation of an incoming message towards
+  an ArcGIS object (see [field mapping](#field-mapping)).
 
 ### ArcGIS authentication
 Before this function can post new data towards ArcGIS, first a token has to be retrieved. This is done based on some
