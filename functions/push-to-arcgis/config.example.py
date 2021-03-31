@@ -6,7 +6,11 @@ ARCGIS_AUTHENTICATION = {
     "referer": "example.com",
 }
 ARCGIS_FEATURE_URL = "example.com"
+ARCGIS_FEATURE_ID = "example"
 
+EXISTENCE_CHECK = "firestore"
+
+MAPPING_ID_FIELD = "attributes/id"
 MAPPING_DATA_SOURCE = "nested/data"
 MAPPING_ATTACHMENT_FIELDS = ["attributes/profile_picture"]
 MAPPING_FIELD_CONFIG = {

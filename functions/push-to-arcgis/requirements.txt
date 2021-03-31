@@ -5,6 +5,7 @@ chardet==4.0.0
 google-api-core==1.26.2
 google-auth==1.28.0
 google-cloud-core==1.6.0
+google-cloud-firestore==2.1.0
 google-cloud-secret-manager==2.3.0
 google-cloud-storage==1.36.2
 google-crc32c==1.1.2

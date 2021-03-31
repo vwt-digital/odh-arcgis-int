@@ -50,6 +50,7 @@ def process(data, subscription):
         or not hasattr(config, "MAPPING_ID_FIELD")
         or not hasattr(config, "ARCGIS_AUTHENTICATION")
         or not hasattr(config, "ARCGIS_FEATURE_URL")
+        or not hasattr(config, "ARCGIS_FEATURE_ID")
     ):
         logging.error(
             f"Function is missing required configuration for subscription '{subscription}'"
@@ -69,6 +70,7 @@ def process(data, subscription):
     )
     arcgis_auth = config.ARCGIS_AUTHENTICATION  # Required configuration
     arcgis_url = config.ARCGIS_FEATURE_URL  # Required configuration
+    arcgis_name = config.ARCGIS_FEATURE_ID  # Required configuration
 
     existence_check = (
         config.EXISTENCE_CHECK if hasattr(config, "EXISTENCE_CHECK") else None
@@ -84,7 +86,7 @@ def process(data, subscription):
         logging.info("No data to be published towards ArcGIS")
         return "No Content", 204
 
-    gis_service = GISService(arcgis_auth, arcgis_url)
+    gis_service = GISService(arcgis_auth, arcgis_url, arcgis_name)
 
     # Publish data to GIS server
     for item in formatted_data:
@@ -103,7 +105,7 @@ def process(data, subscription):
         if feature_id:
             gis_service.update_object_to_feature_layer(item, feature_id)
         else:
-            feature_id = gis_service.add_object_to_feature_layer(item)
+            feature_id = gis_service.add_object_to_feature_layer(item, item_id)
 
         # Upload attachments and update feature
         if len(item_attachments) > 0:
