@@ -88,6 +88,12 @@ class GISService:
 
             return self.get_existing_object_id_in_firestore(id_value)
 
+        if existence_check:
+            logging.error(
+                f"The existence check value '{existence_check}' is not supported, "
+                "supported types: 'arcgis', 'firestore'"
+            )
+
         return None
 
     def get_existing_object_id_in_feature_layer(self, id_field, id_value):
