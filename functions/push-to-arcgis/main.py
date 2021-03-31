@@ -47,6 +47,7 @@ def process(data, subscription):
 
     if (
         not hasattr(config, "MAPPING_FIELD_CONFIG")
+        or not hasattr(config, "MAPPING_ID_FIELD")
         or not hasattr(config, "ARCGIS_AUTHENTICATION")
         or not hasattr(config, "ARCGIS_FEATURE_URL")
     ):
@@ -57,6 +58,7 @@ def process(data, subscription):
 
     # Retrieve current mapping configuration
     mapping_fields = config.MAPPING_FIELD_CONFIG  # Required configuration
+    mapping_id_field = config.MAPPING_ID_FIELD.split("/")  # Required configuration
     mapping_data_source = (
         config.MAPPING_DATA_SOURCE if hasattr(config, "MAPPING_DATA_SOURCE") else None
     )
@@ -67,6 +69,10 @@ def process(data, subscription):
     )
     arcgis_auth = config.ARCGIS_AUTHENTICATION  # Required configuration
     arcgis_url = config.ARCGIS_FEATURE_URL  # Required configuration
+
+    existence_check = (
+        config.EXISTENCE_CHECK if hasattr(config, "EXISTENCE_CHECK") else None
+    )
 
     # Create a list of mapped data
     mapping_service = FieldMapperService(
@@ -84,9 +90,20 @@ def process(data, subscription):
     for item in formatted_data:
         # Extract attachments from object
         item, item_attachments = mapping_service.extract_attachments(data_object=item)
+        item_id = mapping_service.get_from_dict(
+            data=item, map_list=mapping_id_field, field_config={}
+        )
 
-        # # Upload feature to ArcGIS
-        feature_id = gis_service.add_object_to_feature_layer(item)
+        # Check if feature already exists
+        feature_id = gis_service.get_existing_object_id(
+            existence_check, mapping_id_field[-1], item_id
+        )
+
+        # If feature exists update this, otherwise add new feature
+        if feature_id:
+            gis_service.update_object_to_feature_layer(item, feature_id)
+        else:
+            feature_id = gis_service.add_object_to_feature_layer(item)
 
         # Upload attachments and update feature
         if len(item_attachments) > 0:

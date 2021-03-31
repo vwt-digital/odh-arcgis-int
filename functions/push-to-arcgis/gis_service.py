@@ -59,6 +59,61 @@ class GISService:
         else:
             return data["token"]
 
+    def get_existing_object_id(self, existence_check, id_field, id_value):
+        """
+        Check if feature already exist
+
+        :param existence_check: Existence check type
+        :type existence_check: str
+        :param id_field: ID field
+        :type id_field: str
+        :param id_value: ID value
+
+        :return: Feature ID
+        :rtype: int
+        """
+
+        if existence_check == "arcgis":
+            return self.get_existing_object_id_in_feature_layer(id_field, id_value)
+
+        return None
+
+    def get_existing_object_id_in_feature_layer(self, id_field, id_value):
+        """
+        Check if feature already exist
+
+        :param id_field: ID field
+        :type id_field: str
+        :param id_value: ID value
+
+        :return: Feature ID
+        :rtype: int
+        """
+
+        params = {
+            "where": f"{id_field}='{id_value}'",
+            "returnIdsOnly": True,
+            "f": "json",
+            "token": self.token,
+        }
+
+        r = self.requests_session.get(f"{self.arcgis_url}/query", params=params)
+
+        try:
+            response = r.json()
+
+            if "error" not in response:
+                feature_id = response["objectIds"][-1]
+                logging.info(f"Found existing feature in map with ID {feature_id}")
+
+                return feature_id
+        except json.decoder.JSONDecodeError as e:
+            logging.error(f"Status-code: {r.status_code}")
+            logging.error(f"Output:\n{r.text}")
+            logging.exception(e)
+        else:
+            return None
+
     def add_object_to_feature_layer(self, gis_object):
         """
         Add a new GIS object to feature layer
