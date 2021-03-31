@@ -9,10 +9,16 @@ configuration (see [config.example.py](config.example.py) for an example):
 - `ARCGIS_AUTHENTICATION` `required` `[dict]`: A dictionary containing the authentication values for the GIS feature service 
   (see [ArcGIS authentication](#arcgis-authentication));
 - `ARCGIS_FEATURE_URL` `required` `[str]`: A string containing the ArcGIS feature layer URL;
-- `MAPPING_ATTACHMENT_FIELDS` `[list]`: A list of fields containing an attachment that will be sent towards ArcGIS
+- `ARCGIS_FEATURE_ID` `required` `[str]`: A string containing the ArcGIS feature ID (used for the [Existence check](#existence-check));
+- `EXISTENCE_CHECK` `[string]`: Existence check type for incoming features (see [Existence check](#existence-check));
+- `MESSAGE_DATA_SOURCE` `[string]`: The (nested) data field within the incoming message (format: `field/sub-field/sub-sub-field`);
+- `MAPPING_ID_FIELD` `required` `[string]`: The (nested) identifier field for each object 
   (format: `field/sub-field/sub-sub-field`);
-- `MAPPING_DATA_SOURCE` `[string]`: The (nested) data field (format: `field/sub-field/sub-sub-field`);
-- `MAPPING_FIELD_CONFIG` `required` `[dict]`: The field mapping for the transformation of an incoming message towards
+- `MAPPING_ATTACHMENTS` `[list]`: A list of fields containing an attachment that will be sent towards ArcGIS
+  (format: `field/sub-field/sub-sub-field`);
+- `MAPPING_COORDINATES` `required`  `[string]`: The (nested) data field within the incoming message containing the 
+  coordinates (must be a list of two coordinates, format: `field/sub-field/sub-sub-field`);
+- `MAPPING_ATTRIBUTES` `required` `[dict]`: The field mapping for the transformation of an incoming message towards
   an ArcGIS object (see [field mapping](#field-mapping)).
 
 ### ArcGIS authentication
@@ -28,6 +34,15 @@ ArcGIS configuration. The `ARCGIS_AUTHENTICATION` attribute within the configura
   "referer": "The referer of the request"
 }
 ~~~
+
+### Existence check
+To enable the functionality to check if the incoming objects are already within the ArcGIS feature layer, the configuration
+attribute `EXISTENCE_CHECK` can be defined. When an existing feature is found, it will update this feature. When it does
+not exist yet, a new feature will be added. The check can be one of the following values:
+- `arcgis`: This enables the existence check within ArcGIS itself. For each new object it will check if the feature 
+  exists by querying the ArcGIS API (this is not recommended for frequent updates).
+- `firestore`: This enables the existence check within a Firestore instance. For each new object it will check if the
+  feature exists by searching a Firestore instance (recommended for frequent updates).
 
 ### Field mapping
 

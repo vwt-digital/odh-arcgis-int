@@ -5,19 +5,16 @@ from functools import reduce
 
 
 class FieldMapperService:
-    def __init__(self, mapping_fields, mapping_data_source, mapping_attachments):
+    def __init__(self, mapping_data_source, mapping_attachments):
         """
         Initiates the FieldMapperService
 
-        :param mapping_fields: The field mapping for this instance
-        :type mapping_fields: dict
         :param mapping_data_source: The data source field
         :type mapping_data_source: str
         :param mapping_attachments: A list of attachment fields
         :type mapping_attachments: list
         """
 
-        self.mapping_fields = mapping_fields
         self.mapping_data_source = mapping_data_source
         self.mapping_attachments = mapping_attachments
 
@@ -110,6 +107,26 @@ class FieldMapperService:
         finally:
             return data
 
+    @staticmethod
+    def get_mapping(attribute_mapping, coordinate_mapping):
+        return {
+            "geometry": {
+                "_items": {
+                    "x": {
+                        "field": coordinate_mapping,
+                        "list_item": 1,
+                        "required": True,
+                    },
+                    "y": {
+                        "field": coordinate_mapping,
+                        "list_item": 0,
+                        "required": True,
+                    },
+                }
+            },
+            "attributes": {"_items": attribute_mapping},
+        }
+
     def map_data(self, mapping, data):
         """
         Map data to a new dictionary
@@ -148,12 +165,14 @@ class FieldMapperService:
 
         return formatted_dict
 
-    def get_mapped_data(self, data_object):
+    def get_mapped_data(self, data_object, mapping_fields):
         """
         Transform data to a list of mapped data
 
         :param data_object: Data object
         :type data_object: dict
+        :param mapping_fields: The field mapping for this instance
+        :type mapping_fields: dict
 
         :return: List of mapped data
         :rtype: list
@@ -178,7 +197,7 @@ class FieldMapperService:
         formatted_data = []
         for data in data_object:
             try:
-                mapped_data = self.map_data(self.mapping_fields, data)
+                mapped_data = self.map_data(mapping_fields, data)
             except (ValueError, KeyError) as e:
                 logging.info(f"An error occurred during formatting data: {str(e)}")
                 logging.debug(json.dumps(data))
@@ -204,6 +223,7 @@ class FieldMapperService:
         if self.mapping_attachments and len(self.mapping_attachments) > 0:
             for field in self.mapping_attachments:
                 field_mapping = field.split("/")
+                field_mapping.insert(0, "attributes")
 
                 # Get current attachment value
                 item_attachments[field] = self.get_from_dict(

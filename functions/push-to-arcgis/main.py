@@ -3,12 +3,12 @@ import json
 import logging
 
 import config
+from attachment_service import AttachmentService
 from field_mapper import FieldMapperService
 from gis_service import GISService
-from storage_service import StorageService
 
 logging.getLogger().setLevel(logging.INFO)
-storage_service = StorageService()
+attachment_service = AttachmentService()
 
 
 def push_to_arcgis(request):
@@ -46,9 +46,12 @@ def process(data, subscription):
     """
 
     if (
-        not hasattr(config, "MAPPING_FIELD_CONFIG")
+        not hasattr(config, "MAPPING_ATTRIBUTES")
+        or not hasattr(config, "MAPPING_COORDINATES")
+        or not hasattr(config, "MAPPING_ID_FIELD")
         or not hasattr(config, "ARCGIS_AUTHENTICATION")
         or not hasattr(config, "ARCGIS_FEATURE_URL")
+        or not hasattr(config, "ARCGIS_FEATURE_ID")
     ):
         logging.error(
             f"Function is missing required configuration for subscription '{subscription}'"
@@ -56,37 +59,60 @@ def process(data, subscription):
         return "Bad Gateway", 502
 
     # Retrieve current mapping configuration
-    mapping_fields = config.MAPPING_FIELD_CONFIG  # Required configuration
-    mapping_data_source = (
-        config.MAPPING_DATA_SOURCE if hasattr(config, "MAPPING_DATA_SOURCE") else None
-    )
+    mapping_attributes = config.MAPPING_ATTRIBUTES  # Required configuration
+    mapping_coordinates = config.MAPPING_COORDINATES  # Required configuration
+    mapping_id_field = config.MAPPING_ID_FIELD  # Required configuration
     mapping_attachments = (
-        config.MAPPING_ATTACHMENT_FIELDS
-        if hasattr(config, "MAPPING_ATTACHMENT_FIELDS")
-        else None
+        config.MAPPING_ATTACHMENTS if hasattr(config, "MAPPING_ATTACHMENTS") else None
     )
+
+    # Retrieve ArcGIS configuration
     arcgis_auth = config.ARCGIS_AUTHENTICATION  # Required configuration
     arcgis_url = config.ARCGIS_FEATURE_URL  # Required configuration
+    arcgis_name = config.ARCGIS_FEATURE_ID  # Required configuration
 
-    # Create a list of mapped data
-    mapping_service = FieldMapperService(
-        mapping_fields, mapping_data_source, mapping_attachments
+    # Retrieve other configuration
+    message_data_source = (
+        config.MESSAGE_DATA_SOURCE if hasattr(config, "MESSAGE_DATA_SOURCE") else None
     )
-    formatted_data = mapping_service.get_mapped_data(data_object=data)
+    existence_check = (
+        config.EXISTENCE_CHECK if hasattr(config, "EXISTENCE_CHECK") else None
+    )
 
+    # Create mapping service and retrieve ArcGIS object mapping
+    mapping_service = FieldMapperService(message_data_source, mapping_attachments)
+    mapping_fields = mapping_service.get_mapping(
+        mapping_attributes, mapping_coordinates
+    )
+
+    # Retrieve mapped data
+    formatted_data = mapping_service.get_mapped_data(
+        data_object=data, mapping_fields=mapping_fields
+    )
     if not formatted_data:
         logging.info("No data to be published towards ArcGIS")
         return "No Content", 204
 
-    gis_service = GISService(arcgis_auth, arcgis_url)
+    # Create ArcGIS service
+    gis_service = GISService(arcgis_auth, arcgis_url, arcgis_name)
 
-    # Publish data to GIS server
     for item in formatted_data:
         # Extract attachments from object
         item, item_attachments = mapping_service.extract_attachments(data_object=item)
+        item_id = mapping_service.get_from_dict(
+            data=item, map_list=["attributes", mapping_id_field], field_config={}
+        )
 
-        # # Upload feature to ArcGIS
-        feature_id = gis_service.add_object_to_feature_layer(item)
+        # Check if feature already exists
+        feature_id = gis_service.get_existing_object_id(
+            existence_check, mapping_id_field, item_id
+        )
+
+        # If feature exists update this, otherwise add new feature
+        if feature_id:
+            gis_service.update_object_to_feature_layer(item, feature_id)
+        else:
+            feature_id = gis_service.add_object_to_feature_layer(item, item_id)
 
         # Upload attachments and update feature
         if len(item_attachments) > 0:
@@ -95,7 +121,7 @@ def process(data, subscription):
 
             for field in item_attachments:
                 # Get attachment content
-                file_type, file_name, file_content = storage_service.get_image(
+                file_type, file_name, file_content = attachment_service.get(
                     item_attachments[field]
                 )
 
