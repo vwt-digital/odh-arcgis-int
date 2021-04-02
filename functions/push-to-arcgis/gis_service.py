@@ -186,7 +186,9 @@ class GISService:
             # Save new Feature if Firestore is enabled
             if self.firestore_client:
                 logging.info(f"Adding feature to Firestore with ID {feature_id}")
-                self.firestore_client.set_entity(object_id, {"objectId": feature_id})
+                self.firestore_client.set_entity(
+                    object_id, {"objectId": feature_id, "entityId": object_id}
+                )
 
             return feature_id
         except json.decoder.JSONDecodeError as e:
