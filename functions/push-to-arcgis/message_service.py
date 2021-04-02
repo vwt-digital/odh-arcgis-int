@@ -4,6 +4,7 @@ import sys
 import config
 from attachment_service import AttachmentService
 from field_mapper import FieldMapperService
+from firestore_service import FirestoreService
 from gis_service import GISService
 
 
@@ -46,7 +47,15 @@ class MessageService:
         self.existence_check = (
             config.EXISTENCE_CHECK if hasattr(config, "EXISTENCE_CHECK") else None
         )
+        high_workload = (
+            config.HIGH_WORKLOAD if hasattr(config, "HIGH_WORKLOAD") else False
+        )
 
+        self.firestore_service = (
+            FirestoreService(high_workload=high_workload, kind=self.arcgis_name)
+            if self.existence_check == "firestore"
+            else None
+        )
         self.attachment_service = AttachmentService()  # Initiate attachment service
         self.mapping_service = FieldMapperService(
             message_data_source, mapping_attachments
@@ -77,7 +86,9 @@ class MessageService:
             return "No Content", 204
 
         # Create ArcGIS service
-        gis_service = GISService(self.arcgis_auth, self.arcgis_url, self.arcgis_name)
+        gis_service = GISService(
+            self.arcgis_auth, self.arcgis_url, self.arcgis_name, self.firestore_service
+        )
         item_processor = self.ItemProcessor(outer=self, gis_service=gis_service)
 
         for item in formatted_data:

@@ -3,13 +3,12 @@ import logging
 import os
 import sys
 
-from firestore_service import FirestoreService
 from requests_retry_session import get_requests_session
 from utils import get_secret
 
 
 class GISService:
-    def __init__(self, arcgis_auth, arcgis_url, arcgis_name):
+    def __init__(self, arcgis_auth, arcgis_url, arcgis_name, firestore_service):
         """
         Initiates the GISService
 
@@ -19,6 +18,7 @@ class GISService:
         :type arcgis_url: str
         :param arcgis_name: The ArcGIS feature name
         :type arcgis_name: str
+        :param firestore_service: The Firestore service
         """
 
         self.arcgis_auth = arcgis_auth
@@ -30,7 +30,7 @@ class GISService:
         )
         self.token = self._get_feature_service_token()
 
-        self.firestore_client = None
+        self.firestore_client = firestore_service
 
     def _get_feature_service_token(self):
         """
@@ -83,9 +83,6 @@ class GISService:
             return self.get_existing_object_id_in_feature_layer(id_field, id_value)
 
         if existence_check == "firestore":
-            if not self.firestore_client:
-                self.firestore_client = FirestoreService(kind=self.arcgis_name)
-
             return self.get_existing_object_id_in_firestore(id_value)
 
         if existence_check:
