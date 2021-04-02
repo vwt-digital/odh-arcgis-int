@@ -1,3 +1,4 @@
+import logging
 from hashlib import sha256
 
 from google.cloud import firestore
@@ -44,10 +45,13 @@ class FirestoreService:
         entity_list = {}
 
         query = self.fs_client.collection(self.kind)
-        entities = query.stream()
 
-        for entity in entities:
+        for entity in query.stream():
             entity_list[entity.id] = entity.to_dict()
+
+        logging.info(
+            f"Retrieved {len(entity_list)} entities for high workload optimization"
+        )
 
         return entity_list
 
