@@ -120,11 +120,16 @@ class GISService:
         try:
             response = r.json()
 
-            if "error" not in response:
+            if len(response.get("objectIds", [])) > 0:
                 feature_id = response["objectIds"][-1]
                 logging.info(f"Found existing feature in map with ID {feature_id}")
 
                 return feature_id
+
+            if "error" in response:
+                logging.info(
+                    f"Searching for existing feature in map resulted in an error: {json.dumps(response['error'])}"
+                )
         except json.decoder.JSONDecodeError as e:
             logging.error(f"Status-code: {r.status_code}")
             logging.error(f"Output:\n{r.text}")
