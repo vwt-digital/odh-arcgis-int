@@ -124,13 +124,12 @@ class GISService:
                 return feature_id
 
             if "error" in response:
-                logging.info(
+                logging.error(
                     f"Searching for existing feature in map resulted in an error: {json.dumps(response['error'])}"
                 )
         except json.decoder.JSONDecodeError as e:
-            logging.error(f"Status-code: {r.status_code}")
-            logging.error(f"Output:\n{r.text}")
-            logging.exception(e)
+            logging.error(f"Error when searching for feature in GIS server: {str(e)}")
+            return None
         else:
             return None
 
@@ -171,11 +170,12 @@ class GISService:
         try:
             response = r.json()
             if response.get("error", False):
-                raise Exception(
+                logging.error(
                     f"Error when adding feature to GIS server - "
                     f"server responded with status {response['error']['code']}: "
                     f"{response['error']['message']}"
                 )
+                return None
 
             feature_id = response["addResults"][0]["objectId"]
             logging.info(f"Added new feature to map with ID {feature_id}")
@@ -189,9 +189,8 @@ class GISService:
 
             return feature_id
         except json.decoder.JSONDecodeError as e:
-            logging.error(f"Status-code: {r.status_code}")
-            logging.error(f"Output:\n{r.text}")
-            logging.exception(e)
+            logging.error(f"Error when adding feature to GIS server: {str(e)}")
+            return None
 
     def update_object_to_feature_layer(self, gis_object, feature_id):
         """
@@ -212,18 +211,18 @@ class GISService:
         try:
             response = r.json()
             if response.get("error", False):
-                raise Exception(
+                logging.error(
                     f"Error when updating feature to GIS server - "
                     f"server responded with status {response['error']['code']}: "
                     f"{response['error']['message']}"
                 )
+                return None
 
             logging.info(f"Updated feature with ID {feature_id}")
-            return
+            return feature_id
         except json.decoder.JSONDecodeError as e:
-            logging.error(f"Status-code: {r.status_code}")
-            logging.error(f"Output:\n{r.text}")
-            logging.exception(e)
+            logging.error(f"Error when updating feature to GIS server: {str(e)}")
+            return None
 
     def upload_attachment_to_feature_layer(
         self, feature_id, file_type, file_name, file_content
@@ -255,11 +254,12 @@ class GISService:
         try:
             response = r.json()
             if response.get("error", False):
-                raise Exception(
+                logging.error(
                     f"Error when uploading attachment to GIS server - "
                     f"server responded with status {response['error']['code']}: "
                     f"{response['error']['message']}"
                 )
+                return None
 
             attachment_id = response["addAttachmentResult"]["objectId"]
             logging.info(
@@ -268,6 +268,5 @@ class GISService:
 
             return attachment_id
         except json.decoder.JSONDecodeError as e:
-            logging.error(f"Status-code: {r.status_code}")
-            logging.error(f"Output:\n{r.text}")
-            logging.exception(e)
+            logging.error(f"Error when uploading attachment to GIS server: {str(e)}")
+            return None

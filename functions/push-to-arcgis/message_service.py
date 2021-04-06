@@ -92,7 +92,10 @@ class MessageService:
         item_processor = self.ItemProcessor(outer=self, gis_service=gis_service)
 
         for item in formatted_data:
-            item_processor.process(item)
+            if not item_processor.process(
+                item
+            ):  # Break execution if feature could not be processed
+                return "Service Unavailable", 503
 
         return "No Content", 204
 
@@ -114,6 +117,9 @@ class MessageService:
 
             :param item: Item
             :type item: dict
+
+            :return: Feature is successfully processed
+            :rtype: boolean
             """
 
             # Extract attachments from object
@@ -132,13 +138,20 @@ class MessageService:
 
             # If feature exists update this, otherwise add new feature
             if feature_id:
-                self.gis_service.update_object_to_feature_layer(item, feature_id)
+                feature_id = self.gis_service.update_object_to_feature_layer(
+                    item, feature_id
+                )
             else:
                 feature_id = self.gis_service.add_object_to_feature_layer(item, item_id)
+
+            if not feature_id:
+                return False
 
             # Upload attachments and update feature
             if len(item_attachments) > 0:
                 self.process_attachments(feature_id, item, item_attachments)
+
+            return True
 
         def process_attachments(self, feature_id, item, item_attachments):
             """
@@ -161,6 +174,9 @@ class MessageService:
                 attachment_id = self.gis_service.upload_attachment_to_feature_layer(
                     feature_id, file_type, file_name, file_content
                 )
+
+                if not attachment_id:
+                    continue
 
                 # Add attachment ID to correct field
                 item = self.outer.mapping_service.set_in_dict(
