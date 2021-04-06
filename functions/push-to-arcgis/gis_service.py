@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 
+import requests
 from requests_retry_session import get_requests_session
 from utils import get_secret
 
@@ -59,7 +60,7 @@ class GISService:
                 f"Function is missing authentication configuration for retrieving ArcGIS token: {str(e)}"
             )
             sys.exit(1)
-        except json.decoder.JSONDecodeError as e:
+        except (requests.exceptions.ConnectionError, json.decoder.JSONDecodeError) as e:
             logging.error(f"An error occurred when retrieving ArcGIS token: {str(e)}")
             sys.exit(1)
         else:
