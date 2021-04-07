@@ -9,6 +9,7 @@ ARCGIS_FEATURE_URL = "example.com"
 ARCGIS_FEATURE_ID = "example"
 
 EXISTENCE_CHECK = "firestore"
+HIGH_WORKLOAD = True
 MESSAGE_DATA_SOURCE = "nested/data"
 
 MAPPING_ID_FIELD = "id"

@@ -1,5 +1,6 @@
 import logging
 import mimetypes
+from urllib.parse import unquote_plus, urlparse
 
 import google.auth
 import google.auth.transport.requests
@@ -22,7 +23,7 @@ class AttachmentService:
         :rtype: (str, str, str)
         """
 
-        file_name = attachment_url.split("/")[-1]
+        file_name = unquote_plus(urlparse(attachment_url).path).split("/")[-1]
         file_type = mimetypes.guess_type(file_name)[0]
 
         # Refresh authentication token

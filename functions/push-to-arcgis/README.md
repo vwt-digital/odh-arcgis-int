@@ -11,6 +11,8 @@ configuration (see [config.example.py](config.example.py) for an example):
 - `ARCGIS_FEATURE_URL` `required` `[str]`: A string containing the ArcGIS feature layer URL;
 - `ARCGIS_FEATURE_ID` `required` `[str]`: A string containing the ArcGIS feature ID (used for the [Existence check](#existence-check));
 - `EXISTENCE_CHECK` `[string]`: Existence check type for incoming features (see [Existence check](#existence-check));
+- `HIGH_WORKLOAD` `[boolean]`: Enables the high workload optimization. This in combination with the Firestore existence check will
+  retrieve all entities on each Cloud Function instance startup to reduce reads (defaults to `False`).
 - `MESSAGE_DATA_SOURCE` `[string]`: The (nested) data field within the incoming message (format: `field/sub-field/sub-sub-field`);
 - `MAPPING_ID_FIELD` `required` `[string]`: The (nested) identifier field for each object 
   (format: `field/sub-field/sub-sub-field`);

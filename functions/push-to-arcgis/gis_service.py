@@ -3,13 +3,13 @@ import logging
 import os
 import sys
 
-from firestore_service import FirestoreService
+import requests
 from requests_retry_session import get_requests_session
 from utils import get_secret
 
 
 class GISService:
-    def __init__(self, arcgis_auth, arcgis_url, arcgis_name):
+    def __init__(self, arcgis_auth, arcgis_url, arcgis_name, firestore_service):
         """
         Initiates the GISService
 
@@ -19,6 +19,7 @@ class GISService:
         :type arcgis_url: str
         :param arcgis_name: The ArcGIS feature name
         :type arcgis_name: str
+        :param firestore_service: The Firestore service
         """
 
         self.arcgis_auth = arcgis_auth
@@ -30,7 +31,7 @@ class GISService:
         )
         self.token = self._get_feature_service_token()
 
-        self.firestore_client = None
+        self.firestore_client = firestore_service
 
     def _get_feature_service_token(self):
         """
@@ -59,7 +60,7 @@ class GISService:
                 f"Function is missing authentication configuration for retrieving ArcGIS token: {str(e)}"
             )
             sys.exit(1)
-        except json.decoder.JSONDecodeError as e:
+        except (requests.exceptions.ConnectionError, json.decoder.JSONDecodeError) as e:
             logging.error(f"An error occurred when retrieving ArcGIS token: {str(e)}")
             sys.exit(1)
         else:
@@ -83,10 +84,13 @@ class GISService:
             return self.get_existing_object_id_in_feature_layer(id_field, id_value)
 
         if existence_check == "firestore":
-            if not self.firestore_client:
-                self.firestore_client = FirestoreService(kind=self.arcgis_name)
-
             return self.get_existing_object_id_in_firestore(id_value)
+
+        if existence_check:
+            logging.error(
+                f"The existence check value '{existence_check}' is not supported, "
+                "supported types: 'arcgis', 'firestore'"
+            )
 
         return None
 
@@ -114,15 +118,19 @@ class GISService:
         try:
             response = r.json()
 
-            if "error" not in response:
+            if len(response.get("objectIds", [])) > 0:
                 feature_id = response["objectIds"][-1]
                 logging.info(f"Found existing feature in map with ID {feature_id}")
 
                 return feature_id
+
+            if "error" in response:
+                logging.error(
+                    f"Searching for existing feature in map resulted in an error: {json.dumps(response['error'])}"
+                )
         except json.decoder.JSONDecodeError as e:
-            logging.error(f"Status-code: {r.status_code}")
-            logging.error(f"Output:\n{r.text}")
-            logging.exception(e)
+            logging.error(f"Error when searching for feature in GIS server: {str(e)}")
+            return None
         else:
             return None
 
@@ -163,11 +171,12 @@ class GISService:
         try:
             response = r.json()
             if response.get("error", False):
-                raise Exception(
+                logging.error(
                     f"Error when adding feature to GIS server - "
                     f"server responded with status {response['error']['code']}: "
                     f"{response['error']['message']}"
                 )
+                return None
 
             feature_id = response["addResults"][0]["objectId"]
             logging.info(f"Added new feature to map with ID {feature_id}")
@@ -175,13 +184,14 @@ class GISService:
             # Save new Feature if Firestore is enabled
             if self.firestore_client:
                 logging.info(f"Adding feature to Firestore with ID {feature_id}")
-                self.firestore_client.set_entity(object_id, {"objectId": feature_id})
+                self.firestore_client.set_entity(
+                    object_id, {"objectId": feature_id, "entityId": object_id}
+                )
 
             return feature_id
         except json.decoder.JSONDecodeError as e:
-            logging.error(f"Status-code: {r.status_code}")
-            logging.error(f"Output:\n{r.text}")
-            logging.exception(e)
+            logging.error(f"Error when adding feature to GIS server: {str(e)}")
+            return None
 
     def update_object_to_feature_layer(self, gis_object, feature_id):
         """
@@ -202,18 +212,18 @@ class GISService:
         try:
             response = r.json()
             if response.get("error", False):
-                raise Exception(
+                logging.error(
                     f"Error when updating feature to GIS server - "
                     f"server responded with status {response['error']['code']}: "
                     f"{response['error']['message']}"
                 )
+                return None
 
             logging.info(f"Updated feature with ID {feature_id}")
-            return
+            return feature_id
         except json.decoder.JSONDecodeError as e:
-            logging.error(f"Status-code: {r.status_code}")
-            logging.error(f"Output:\n{r.text}")
-            logging.exception(e)
+            logging.error(f"Error when updating feature to GIS server: {str(e)}")
+            return None
 
     def upload_attachment_to_feature_layer(
         self, feature_id, file_type, file_name, file_content
@@ -245,11 +255,12 @@ class GISService:
         try:
             response = r.json()
             if response.get("error", False):
-                raise Exception(
+                logging.error(
                     f"Error when uploading attachment to GIS server - "
                     f"server responded with status {response['error']['code']}: "
                     f"{response['error']['message']}"
                 )
+                return None
 
             attachment_id = response["addAttachmentResult"]["objectId"]
             logging.info(
@@ -258,6 +269,5 @@ class GISService:
 
             return attachment_id
         except json.decoder.JSONDecodeError as e:
-            logging.error(f"Status-code: {r.status_code}")
-            logging.error(f"Output:\n{r.text}")
-            logging.exception(e)
+            logging.error(f"Error when uploading attachment to GIS server: {str(e)}")
+            return None
