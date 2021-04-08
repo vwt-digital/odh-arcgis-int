@@ -130,6 +130,7 @@ class GISService:
                 )
         except json.decoder.JSONDecodeError as e:
             logging.error(f"Error when searching for feature in GIS server: {str(e)}")
+            logging.info(json.dumps(r.content))
             return None
         else:
             return None
@@ -191,6 +192,7 @@ class GISService:
             return feature_id
         except json.decoder.JSONDecodeError as e:
             logging.error(f"Error when adding feature to GIS server: {str(e)}")
+            logging.info(json.dumps(r.content))
             return None
 
     def update_object_to_feature_layer(self, gis_object, feature_id):
@@ -223,6 +225,7 @@ class GISService:
             return feature_id
         except json.decoder.JSONDecodeError as e:
             logging.error(f"Error when updating feature to GIS server: {str(e)}")
+            logging.info(json.dumps(r.content))
             return None
 
     def upload_attachment_to_feature_layer(
@@ -270,4 +273,5 @@ class GISService:
             return attachment_id
         except json.decoder.JSONDecodeError as e:
             logging.error(f"Error when uploading attachment to GIS server: {str(e)}")
+            logging.info(json.dumps(r.content))
             return None
