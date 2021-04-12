@@ -97,6 +97,8 @@ class MessageService:
             ):  # Break execution if feature could not be processed
                 return "Service Unavailable", 503
 
+        gis_service.close_service()
+
         return "No Content", 204
 
     class ItemProcessor:
