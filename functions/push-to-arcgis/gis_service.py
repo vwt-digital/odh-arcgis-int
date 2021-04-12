@@ -184,7 +184,6 @@ class GISService:
 
             # Save new Feature if Firestore is enabled
             if self.firestore_client:
-                logging.info(f"Adding feature to Firestore with ID {feature_id}")
                 self.firestore_client.set_entity(
                     object_id, {"objectId": feature_id, "entityId": object_id}
                 )
@@ -275,3 +274,12 @@ class GISService:
             logging.error(f"Error when uploading attachment to GIS server: {str(e)}")
             logging.info(r.content)
             return None
+
+    def close_service(self):
+        """
+        Close the service
+        """
+
+        # Save new entities to Firestore if available
+        if self.firestore_client and self.firestore_client.entities_to_save:
+            self.firestore_client.save_new_entities()

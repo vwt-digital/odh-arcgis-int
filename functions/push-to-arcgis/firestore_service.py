@@ -19,6 +19,7 @@ class FirestoreService:
         self.fs_client = firestore.Client()
 
         self.entity_list = self.get_all_entities() if high_workload else None
+        self.entities_to_save = {}
 
     @staticmethod
     def hash_id(entity_id):
@@ -50,10 +51,26 @@ class FirestoreService:
             entity_list[entity.id] = entity.to_dict()
 
         logging.info(
-            f"Retrieved {len(entity_list)} entities for high workload optimization"
+            f"Retrieved {len(entity_list)} entities from collection '{self.kind}' for high workload optimization"
         )
 
         return entity_list
+
+    def save_new_entities(self):
+        """
+        Save Firestore entities in batch
+        """
+
+        batch = self.fs_client.batch()
+
+        for entity_id in self.entities_to_save:
+            entity_ref = self.fs_client.collection(self.kind).document(entity_id)
+            batch.set(entity_ref, self.entities_to_save[entity_id])
+
+        batch.commit()
+        logging.info(
+            f"Added {len(self.entities_to_save)} features to Firestore collection '{self.kind}'"
+        )
 
     def get_entity(self, entity_id):
         """
@@ -82,7 +99,7 @@ class FirestoreService:
 
     def set_entity(self, entity_id, entity_dict):
         """
-        Get a Firestore entity
+        Set a Firestore entity
 
         :param entity_id: Entity ID
         :type entity_id: string
@@ -92,8 +109,7 @@ class FirestoreService:
 
         entity_id_hash = self.hash_id(entity_id)
 
-        doc_ref = self.fs_client.collection(self.kind).document(entity_id_hash)
-        doc_ref.set(entity_dict)
+        self.entities_to_save[entity_id_hash] = entity_dict
 
         if self.entity_list and entity_id_hash not in self.entity_list:
             self.entity_list[entity_id_hash] = entity_dict
