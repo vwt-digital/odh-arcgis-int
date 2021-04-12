@@ -114,12 +114,12 @@ class FieldMapperService:
                 "_items": {
                     "x": {
                         "field": coordinate_mapping,
-                        "list_item": 1,
+                        "list_item": 0,
                         "required": True,
                     },
                     "y": {
                         "field": coordinate_mapping,
-                        "list_item": 0,
+                        "list_item": 1,
                         "required": True,
                     },
                 }
