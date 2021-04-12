@@ -281,5 +281,5 @@ class GISService:
         """
 
         # Save new entities to Firestore if available
-        if self.firestore_client and self.firestore_client.entities_to_update:
+        if self.firestore_client and self.firestore_client.entities_to_save:
             self.firestore_client.save_new_entities()
