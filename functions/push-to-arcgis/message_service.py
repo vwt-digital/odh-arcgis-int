@@ -89,6 +89,10 @@ class MessageService:
         gis_service = GISService(
             self.arcgis_auth, self.arcgis_url, self.arcgis_name, self.firestore_service
         )
+
+        if not gis_service.token:
+            return "Service Unavailable", 503
+
         item_processor = self.ItemProcessor(outer=self, gis_service=gis_service)
 
         for item in formatted_data:
