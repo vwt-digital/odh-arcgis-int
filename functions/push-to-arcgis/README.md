@@ -251,6 +251,14 @@ forget to ensure the Pub/Sub instances has Function Invoking permission.
 
 Function entrypoint: `push_to_arcgis`
 
+### Cloud Builder
+In addition to the default deployment of this Cloud Function, it also supports the usage of the 
+[function deployment cloudbuilder](https://github.com/vwt-digital/cloudbuilder-function-deploy). This is a Cloud Build
+image that handles some default variables and ensures the function is always secure. The default deployment variables
+of this function can be found in the [deploy.json](deploy.json) file within the source.
+
+To deploy the function via this image, see the [Cloud Build example](cloudbuild.example.yaml).
+
 ## License
 
 [GPL-3](https://www.gnu.org/licenses/gpl-3.0.en.html)
