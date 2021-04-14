@@ -8,7 +8,7 @@ from utils import get_secret
 
 
 class GISService:
-    def __init__(self, arcgis_auth, arcgis_url, arcgis_name, firestore_service):
+    def __init__(self, arcgis_auth, arcgis_url, arcgis_name):
         """
         Initiates the GISService
 
@@ -18,7 +18,6 @@ class GISService:
         :type arcgis_url: str
         :param arcgis_name: The ArcGIS feature name
         :type arcgis_name: str
-        :param firestore_service: The Firestore service
         """
 
         self.arcgis_auth = arcgis_auth
@@ -29,8 +28,6 @@ class GISService:
             retries=3, backoff=15, status_forcelist=(404, 500, 502, 503, 504)
         )
         self.token = self._get_feature_service_token()
-
-        self.firestore_client = firestore_service
 
     def _get_feature_service_token(self):
         """
@@ -65,35 +62,7 @@ class GISService:
         else:
             return data["token"]
 
-    def get_existing_object_id(self, existence_check, id_field, id_value):
-        """
-        Check if feature already exist
-
-        :param existence_check: Existence check type
-        :type existence_check: str
-        :param id_field: ID field
-        :type id_field: str
-        :param id_value: ID value
-
-        :return: Feature ID
-        :rtype: int
-        """
-
-        if existence_check == "arcgis":
-            return self.get_existing_object_id_in_feature_layer(id_field, id_value)
-
-        if existence_check == "firestore":
-            return self.get_existing_object_id_in_firestore(id_value)
-
-        if existence_check:
-            logging.error(
-                f"The existence check value '{existence_check}' is not supported, "
-                "supported types: 'arcgis', 'firestore'"
-            )
-
-        return None
-
-    def get_existing_object_id_in_feature_layer(self, id_field, id_value):
+    def get_object_id_in_feature_layer(self, id_field, id_value):
         """
         Check if feature already exist within ArcGIS Feature Layer
 
@@ -119,7 +88,9 @@ class GISService:
 
             if len(response.get("objectIds", [])) > 0:
                 feature_id = response["objectIds"][-1]
-                logging.info(f"Found existing feature in map with ID {feature_id}")
+                logging.debug(
+                    f"Found existing feature for '{id_value}' in map with ID {feature_id}"
+                )
 
                 return feature_id
 
@@ -134,95 +105,54 @@ class GISService:
         else:
             return None
 
-    def get_existing_object_id_in_firestore(self, id_value):
+    def update_feature_layer(self, to_update, to_create):
         """
-        Check if feature already exist within Firestore database
+        Update feature layer
 
-        :param id_value: ID value
+        :param to_update: Features to update
+        :type to_update: list
+        :param to_create: Features to create
+        :type to_create: list
 
         :return: Feature ID
         :rtype: int
         """
 
-        entity = self.firestore_client.get_entity(id_value)
+        data_adds = [obj["object"] for obj in to_create]
+        data_updates = [obj["object"] for obj in to_update]
 
-        if entity and "objectId" in entity:
-            return entity["objectId"]
-
-        return None
-
-    def add_object_to_feature_layer(self, gis_object, object_id):
-        """
-        Add a new GIS object to feature layer
-
-        :param gis_object: GIS object
-        :type gis_object: dict
-        :param object_id: Object ID
-        :type object_id: str
-
-        :return: Feature ID
-        :rtype: int
-        """
-
-        data = {"adds": json.dumps([gis_object]), "f": "json", "token": self.token}
-
-        r = self.requests_session.post(f"{self.arcgis_url}/applyEdits", data=data)
+        data = {
+            "adds": json.dumps(data_adds),
+            "updates": json.dumps(data_updates),
+            "f": "json",
+            "token": self.token,
+        }
 
         try:
+            r = self.requests_session.post(f"{self.arcgis_url}/applyEdits", data=data)
+
             response = r.json()
             if response.get("error", False):
                 logging.error(
-                    f"Error when adding feature to GIS server - "
-                    f"server responded with status {response['error']['code']}: "
+                    f"Error when updating GIS server - server responded with status {response['error']['code']}: "
                     f"{response['error']['message']}"
                 )
                 return None
 
-            feature_id = response["addResults"][0]["objectId"]
-            logging.info(f"Added new feature to map with ID {feature_id}")
+            if len(response["addResults"]) > 0:
+                logging.info(f"Added {len(response['addResults'])} new feature(s)")
 
-            # Save new Feature if Firestore is enabled
-            if self.firestore_client:
-                self.firestore_client.set_entity(
-                    object_id, {"objectId": feature_id, "entityId": object_id}
+            if len(response["updateResults"]) > 0:
+                logging.info(
+                    f"Updated {len(response['updateResults'])} existing feature(s)"
                 )
 
-            return feature_id
-        except json.decoder.JSONDecodeError as e:
-            logging.error(f"Error when adding feature to GIS server: {str(e)}")
-            logging.info(r.content)
+            return response["updateResults"], response["addResults"]
+        except requests.exceptions.ConnectionError as e:
+            logging.error(f"Connection error when updating GIS server: {str(e)}")
             return None
-
-    def update_object_to_feature_layer(self, gis_object, feature_id):
-        """
-        Update an existing GIS object to feature layer
-
-        :param gis_object: GIS object
-        :type gis_object: dict
-        :param feature_id: Feature ID
-        :type feature_id: int
-        """
-
-        gis_object["attributes"]["objectid"] = int(feature_id)
-
-        data = {"updates": json.dumps([gis_object]), "f": "json", "token": self.token}
-
-        r = self.requests_session.post(f"{self.arcgis_url}/applyEdits", data=data)
-
-        try:
-            response = r.json()
-            if response.get("error", False):
-                logging.error(
-                    f"Error when updating feature to GIS server - "
-                    f"server responded with status {response['error']['code']}: "
-                    f"{response['error']['message']}"
-                )
-                return None
-
-            logging.info(f"Updated feature with ID {feature_id}")
-            return feature_id
         except json.decoder.JSONDecodeError as e:
-            logging.error(f"Error when updating feature to GIS server: {str(e)}")
+            logging.error(f"Error when updating GIS server: {str(e)}")
             logging.info(r.content)
             return None
 
@@ -249,11 +179,11 @@ class GISService:
 
         files = [("attachment", (file_name, file_content, file_type))]
 
-        r = self.requests_session.post(
-            f"{self.arcgis_url}/{feature_id}/addAttachment", data=data, files=files
-        )
-
         try:
+            r = self.requests_session.post(
+                f"{self.arcgis_url}/{feature_id}/addAttachment", data=data, files=files
+            )
+
             response = r.json()
             if response.get("error", False):
                 logging.error(
@@ -264,21 +194,17 @@ class GISService:
                 return None
 
             attachment_id = response["addAttachmentResult"]["objectId"]
-            logging.info(
+            logging.debug(
                 f"Uploaded attachment {attachment_id} to feature with ID {feature_id}"
             )
 
             return attachment_id
+        except requests.exceptions.ConnectionError as e:
+            logging.error(
+                f"Connection error when uploading attachment to GIS server: {str(e)}"
+            )
+            return None
         except json.decoder.JSONDecodeError as e:
             logging.error(f"Error when uploading attachment to GIS server: {str(e)}")
             logging.info(r.content)
             return None
-
-    def close_service(self):
-        """
-        Close the service
-        """
-
-        # Save new entities to Firestore if available
-        if self.firestore_client and self.firestore_client.entities_to_save:
-            self.firestore_client.save_new_entities()

@@ -1,0 +1,12 @@
+---
+steps:
+  - name: 'eu.gcr.io/vwt-p-gew1-dat-cloudbuilders/cloudbuilder-function-deploy:latest'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        function_deploy.py ${PROJECT_ID}-push-to-arcgis-func \
+          --project="${PROJECT_ID}" \
+          --trigger-http \
+          --set-env-vars=PROJECT_ID=${PROJECT_ID}
+    dir: 'functions/push-to-arcgis'

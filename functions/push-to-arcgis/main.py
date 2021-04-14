@@ -20,7 +20,7 @@ def push_to_arcgis(request):
 
     try:
         envelope = json.loads(request.data.decode("utf-8"))
-        logging.info(envelope)
+        logging.debug(envelope)
         _bytes = base64.b64decode(envelope["message"]["data"])
         _message = json.loads(_bytes)
     except Exception as e:

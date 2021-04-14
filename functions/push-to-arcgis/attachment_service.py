@@ -41,5 +41,5 @@ class AttachmentService:
             )
             return None, None, None
         else:
-            logging.info(f"Successfully downloaded attachment '{attachment_url}'")
+            logging.debug(f"Successfully downloaded attachment '{attachment_url}'")
             return file_type, file_name, response.content

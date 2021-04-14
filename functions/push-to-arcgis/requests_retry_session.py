@@ -12,7 +12,7 @@ def get_requests_session(retries=3, backoff=1, status_forcelist=(500, 502, 503, 
     :param backoff: Backup factor
     :type backoff: int
     :param status_forcelist: Status codes to retry to
-    :type status_forcelist: int
+    :type status_forcelist: tuple
 
     :return: Request session
     """
