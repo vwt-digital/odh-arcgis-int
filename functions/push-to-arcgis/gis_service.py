@@ -166,9 +166,9 @@ class GISService:
 
         data = {"adds": json.dumps([gis_object]), "f": "json", "token": self.token}
 
-        r = self.requests_session.post(f"{self.arcgis_url}/applyEdits", data=data)
-
         try:
+            r = self.requests_session.post(f"{self.arcgis_url}/applyEdits", data=data)
+
             response = r.json()
             if response.get("error", False):
                 logging.error(
@@ -188,6 +188,11 @@ class GISService:
                 )
 
             return feature_id
+        except requests.exceptions.ConnectionError as e:
+            logging.error(
+                f"Connection error when adding feature to GIS server: {str(e)}"
+            )
+            return None
         except json.decoder.JSONDecodeError as e:
             logging.error(f"Error when adding feature to GIS server: {str(e)}")
             logging.info(r.content)
@@ -207,9 +212,9 @@ class GISService:
 
         data = {"updates": json.dumps([gis_object]), "f": "json", "token": self.token}
 
-        r = self.requests_session.post(f"{self.arcgis_url}/applyEdits", data=data)
-
         try:
+            r = self.requests_session.post(f"{self.arcgis_url}/applyEdits", data=data)
+
             response = r.json()
             if response.get("error", False):
                 logging.error(
@@ -221,6 +226,11 @@ class GISService:
 
             logging.info(f"Updated feature with ID {feature_id}")
             return feature_id
+        except requests.exceptions.ConnectionError as e:
+            logging.error(
+                f"Connection error when updating feature to GIS server: {str(e)}"
+            )
+            return None
         except json.decoder.JSONDecodeError as e:
             logging.error(f"Error when updating feature to GIS server: {str(e)}")
             logging.info(r.content)
@@ -249,11 +259,11 @@ class GISService:
 
         files = [("attachment", (file_name, file_content, file_type))]
 
-        r = self.requests_session.post(
-            f"{self.arcgis_url}/{feature_id}/addAttachment", data=data, files=files
-        )
-
         try:
+            r = self.requests_session.post(
+                f"{self.arcgis_url}/{feature_id}/addAttachment", data=data, files=files
+            )
+
             response = r.json()
             if response.get("error", False):
                 logging.error(
@@ -269,6 +279,11 @@ class GISService:
             )
 
             return attachment_id
+        except requests.exceptions.ConnectionError as e:
+            logging.error(
+                f"Connection error when uploading attachment to GIS server: {str(e)}"
+            )
+            return None
         except json.decoder.JSONDecodeError as e:
             logging.error(f"Error when uploading attachment to GIS server: {str(e)}")
             logging.info(r.content)
