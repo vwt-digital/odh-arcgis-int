@@ -119,7 +119,9 @@ class GISService:
 
             if len(response.get("objectIds", [])) > 0:
                 feature_id = response["objectIds"][-1]
-                logging.info(f"Found existing feature in map with ID {feature_id}")
+                logging.debug(
+                    f"Found existing feature for '{id_value}' in map with ID {feature_id}"
+                )
 
                 return feature_id
 
@@ -151,20 +153,28 @@ class GISService:
 
         return None
 
-    def add_object_to_feature_layer(self, gis_object, object_id):
+    def update_feature_layer(self, to_update, to_create):
         """
-        Add a new GIS object to feature layer
+        Update feature layer
 
-        :param gis_object: GIS object
-        :type gis_object: dict
-        :param object_id: Object ID
-        :type object_id: str
+        :param to_update: Features to update
+        :type to_update: list
+        :param to_create: Features to create
+        :type to_create: list
 
         :return: Feature ID
         :rtype: int
         """
 
-        data = {"adds": json.dumps([gis_object]), "f": "json", "token": self.token}
+        data_adds = [obj["object"] for obj in to_create]
+        data_updates = [obj["object"] for obj in to_update]
+
+        data = {
+            "adds": json.dumps(data_adds),
+            "updates": json.dumps(data_updates),
+            "f": "json",
+            "token": self.token,
+        }
 
         try:
             r = self.requests_session.post(f"{self.arcgis_url}/applyEdits", data=data)
@@ -172,67 +182,25 @@ class GISService:
             response = r.json()
             if response.get("error", False):
                 logging.error(
-                    f"Error when adding feature to GIS server - "
-                    f"server responded with status {response['error']['code']}: "
+                    f"Error when updating GIS server - server responded with status {response['error']['code']}: "
                     f"{response['error']['message']}"
                 )
                 return None
 
-            feature_id = response["addResults"][0]["objectId"]
-            logging.info(f"Added new feature to map with ID {feature_id}")
+            if len(response["addResults"]) > 0:
+                logging.info(f"Added {len(response['addResults'])} new feature(s)")
 
-            # Save new Feature if Firestore is enabled
-            if self.firestore_client:
-                self.firestore_client.set_entity(
-                    object_id, {"objectId": feature_id, "entityId": object_id}
+            if len(response["updateResults"]) > 0:
+                logging.info(
+                    f"Updated {len(response['updateResults'])} existing feature(s)"
                 )
 
-            return feature_id
+            return response["updateResults"], response["addResults"]
         except requests.exceptions.ConnectionError as e:
-            logging.error(
-                f"Connection error when adding feature to GIS server: {str(e)}"
-            )
+            logging.error(f"Connection error when updating GIS server: {str(e)}")
             return None
         except json.decoder.JSONDecodeError as e:
-            logging.error(f"Error when adding feature to GIS server: {str(e)}")
-            logging.info(r.content)
-            return None
-
-    def update_object_to_feature_layer(self, gis_object, feature_id):
-        """
-        Update an existing GIS object to feature layer
-
-        :param gis_object: GIS object
-        :type gis_object: dict
-        :param feature_id: Feature ID
-        :type feature_id: int
-        """
-
-        gis_object["attributes"]["objectid"] = int(feature_id)
-
-        data = {"updates": json.dumps([gis_object]), "f": "json", "token": self.token}
-
-        try:
-            r = self.requests_session.post(f"{self.arcgis_url}/applyEdits", data=data)
-
-            response = r.json()
-            if response.get("error", False):
-                logging.error(
-                    f"Error when updating feature to GIS server - "
-                    f"server responded with status {response['error']['code']}: "
-                    f"{response['error']['message']}"
-                )
-                return None
-
-            logging.info(f"Updated feature with ID {feature_id}")
-            return feature_id
-        except requests.exceptions.ConnectionError as e:
-            logging.error(
-                f"Connection error when updating feature to GIS server: {str(e)}"
-            )
-            return None
-        except json.decoder.JSONDecodeError as e:
-            logging.error(f"Error when updating feature to GIS server: {str(e)}")
+            logging.error(f"Error when updating GIS server: {str(e)}")
             logging.info(r.content)
             return None
 
@@ -274,7 +242,7 @@ class GISService:
                 return None
 
             attachment_id = response["addAttachmentResult"]["objectId"]
-            logging.info(
+            logging.debug(
                 f"Uploaded attachment {attachment_id} to feature with ID {feature_id}"
             )
 
