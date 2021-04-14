@@ -113,3 +113,12 @@ class FirestoreService:
 
         if self.entity_list and entity_id_hash not in self.entity_list:
             self.entity_list[entity_id_hash] = entity_dict
+
+    def close(self):
+        """
+        Close the service
+        """
+
+        # Save new entities to Firestore if available
+        if self.entities_to_save:
+            self.save_new_entities()

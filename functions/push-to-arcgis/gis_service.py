@@ -8,7 +8,7 @@ from utils import get_secret
 
 
 class GISService:
-    def __init__(self, arcgis_auth, arcgis_url, arcgis_name, firestore_service):
+    def __init__(self, arcgis_auth, arcgis_url, arcgis_name):
         """
         Initiates the GISService
 
@@ -18,7 +18,6 @@ class GISService:
         :type arcgis_url: str
         :param arcgis_name: The ArcGIS feature name
         :type arcgis_name: str
-        :param firestore_service: The Firestore service
         """
 
         self.arcgis_auth = arcgis_auth
@@ -29,8 +28,6 @@ class GISService:
             retries=3, backoff=15, status_forcelist=(404, 500, 502, 503, 504)
         )
         self.token = self._get_feature_service_token()
-
-        self.firestore_client = firestore_service
 
     def _get_feature_service_token(self):
         """
@@ -65,35 +62,7 @@ class GISService:
         else:
             return data["token"]
 
-    def get_existing_object_id(self, existence_check, id_field, id_value):
-        """
-        Check if feature already exist
-
-        :param existence_check: Existence check type
-        :type existence_check: str
-        :param id_field: ID field
-        :type id_field: str
-        :param id_value: ID value
-
-        :return: Feature ID
-        :rtype: int
-        """
-
-        if existence_check == "arcgis":
-            return self.get_existing_object_id_in_feature_layer(id_field, id_value)
-
-        if existence_check == "firestore":
-            return self.get_existing_object_id_in_firestore(id_value)
-
-        if existence_check:
-            logging.error(
-                f"The existence check value '{existence_check}' is not supported, "
-                "supported types: 'arcgis', 'firestore'"
-            )
-
-        return None
-
-    def get_existing_object_id_in_feature_layer(self, id_field, id_value):
+    def get_object_id_in_feature_layer(self, id_field, id_value):
         """
         Check if feature already exist within ArcGIS Feature Layer
 
@@ -135,23 +104,6 @@ class GISService:
             return None
         else:
             return None
-
-    def get_existing_object_id_in_firestore(self, id_value):
-        """
-        Check if feature already exist within Firestore database
-
-        :param id_value: ID value
-
-        :return: Feature ID
-        :rtype: int
-        """
-
-        entity = self.firestore_client.get_entity(id_value)
-
-        if entity and "objectId" in entity:
-            return entity["objectId"]
-
-        return None
 
     def update_feature_layer(self, to_update, to_create):
         """
@@ -256,12 +208,3 @@ class GISService:
             logging.error(f"Error when uploading attachment to GIS server: {str(e)}")
             logging.info(r.content)
             return None
-
-    def close_service(self):
-        """
-        Close the service
-        """
-
-        # Save new entities to Firestore if available
-        if self.firestore_client and self.firestore_client.entities_to_save:
-            self.firestore_client.save_new_entities()

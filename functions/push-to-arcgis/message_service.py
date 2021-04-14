@@ -88,9 +88,7 @@ class MessageService:
             return "No Content", 204
 
         # Create ArcGIS service
-        gis_service = GISService(
-            self.arcgis_auth, self.arcgis_url, self.arcgis_name, self.firestore_service
-        )
+        gis_service = GISService(self.arcgis_auth, self.arcgis_url, self.arcgis_name)
 
         if not gis_service.token:
             return "Service Unavailable", 503
@@ -146,7 +144,8 @@ class MessageService:
 
                 gis_service.update_feature_layer(edits_to_update, [])
 
-        gis_service.close_service()
+        if self.firestore_service:
+            self.firestore_service.close()
 
     def divide_data(self, formatted_data):
         """
@@ -290,9 +289,7 @@ class MessageService:
                 field_config={},
             )
             # Check if feature already exists
-            feature_id = self.gis_service.get_existing_object_id(
-                self.outer.existence_check, self.outer.mapping_id_field, item_id
-            )
+            feature_id = self.get_existing_object_id(item_id)
 
             return feature_id, item, item_attachments, item_id
 
@@ -338,5 +335,48 @@ class MessageService:
                     "attachment_count": attachment_count,
                     "object": item,
                 }
+
+            return None
+
+        def get_existing_object_id(self, id_value):
+            """
+            Check if feature already exist
+
+            :param id_value: ID value
+
+            :return: Feature ID
+            :rtype: int
+            """
+
+            if self.outer.existence_check == "arcgis":
+                return self.gis_service.get_object_id_in_feature_layer(
+                    self.outer.mapping_id_field, id_value
+                )
+
+            if self.outer.existence_check == "firestore":
+                return self.get_existing_object_id_in_firestore(id_value)
+
+            if self.outer.existence_check:
+                logging.error(
+                    f"The existence check value '{self.outer.existence_check}' is not supported, "
+                    "supported types: 'arcgis', 'firestore'"
+                )
+
+            return None
+
+        def get_existing_object_id_in_firestore(self, id_value):
+            """
+            Check if feature already exist within Firestore database
+
+            :param id_value: ID value
+
+            :return: Feature ID
+            :rtype: int
+            """
+
+            entity = self.outer.firestore_service.get_entity(id_value)
+
+            if entity and "objectId" in entity:
+                return entity["objectId"]
 
             return None
