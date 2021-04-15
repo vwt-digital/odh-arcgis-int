@@ -14,7 +14,8 @@ class MessageService:
 
         if (
             not hasattr(config, "MAPPING_ATTRIBUTES")
-            or not hasattr(config, "MAPPING_COORDINATES")
+            or not hasattr(config, "MAPPING_COORDINATES_LON")
+            or not hasattr(config, "MAPPING_COORDINATES_LAT")
             or not hasattr(config, "MAPPING_ID_FIELD")
             or not hasattr(config, "ARCGIS_AUTHENTICATION")
             or not hasattr(config, "ARCGIS_FEATURE_URL")
@@ -25,7 +26,10 @@ class MessageService:
 
         # Retrieve current mapping configuration
         self.mapping_attributes = config.MAPPING_ATTRIBUTES  # Required configuration
-        self.mapping_coordinates = config.MAPPING_COORDINATES  # Required configuration
+        self.mapping_coordinates = {
+            "longitude": config.MAPPING_COORDINATES_LON,
+            "latitude": config.MAPPING_COORDINATES_LAT,
+        }  # Required configuration
         self.mapping_id_field = config.MAPPING_ID_FIELD  # Required configuration
         mapping_attachments = (
             config.MAPPING_ATTACHMENTS

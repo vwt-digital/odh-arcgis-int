@@ -14,7 +14,8 @@ MESSAGE_DATA_SOURCE = "nested/data"
 
 MAPPING_ID_FIELD = "id"
 MAPPING_ATTACHMENTS = ["profile_picture"]
-MAPPING_COORDINATES = "geometry/coordinates"
+MAPPING_COORDINATES_LON = "geometry/coordinates/0"
+MAPPING_COORDINATES_LAT = "geometry/coordinates/1"
 MAPPING_ATTRIBUTES = {
     "id": {"field": "properties/id", "required": True},
     "name": {"field": "properties/user/name", "required": False},

@@ -107,24 +107,39 @@ class FieldMapperService:
         finally:
             return data
 
-    @staticmethod
-    def get_mapping(attribute_mapping, coordinate_mapping):
+    def get_mapping(self, attribute_mapping, coordinate_mapping):
         return {
             "geometry": {
                 "_items": {
-                    "x": {
-                        "field": coordinate_mapping,
-                        "list_item": 0,
-                        "required": True,
-                    },
-                    "y": {
-                        "field": coordinate_mapping,
-                        "list_item": 1,
-                        "required": True,
-                    },
-                }
+                    "x": self.get_coordinate_mapping(coordinate_mapping["longitude"]),
+                    "y": self.get_coordinate_mapping(coordinate_mapping["latitude"]),
+                },
             },
             "attributes": {"_items": attribute_mapping},
+        }
+
+    @staticmethod
+    def get_coordinate_mapping(field):
+        """
+        Get coordinate mapping based on field
+
+        :param field: Mapping field
+        :type field: str
+
+        :return: Coordinate mapping
+        :rtype: dict
+        """
+
+        if _is_int(field.split("/")[-1]):
+            return {
+                "field": field,
+                "list_item": int(field.split("/")[-1]),
+                "required": True,
+            }
+
+        return {
+            "field": field,
+            "required": True,
         }
 
     def map_data(self, mapping, data):
@@ -236,3 +251,19 @@ class FieldMapperService:
                 )
 
         return data_object, item_attachments
+
+
+def _is_int(x) -> bool:
+    """
+    Returns true if parameter is an integer.
+
+    :param x: Integer or float to validate.
+    """
+
+    try:
+        a = float(x)
+        b = int(a)
+    except ValueError:
+        return False
+    else:
+        return a == b

@@ -18,8 +18,10 @@ configuration (see [config.example.py](config.example.py) for an example):
   (format: `field/sub-field/sub-sub-field`);
 - `MAPPING_ATTACHMENTS` `[list]`: A list of fields containing an attachment that will be sent towards ArcGIS
   (format: `field/sub-field/sub-sub-field`);
-- `MAPPING_COORDINATES` `required`  `[string]`: The (nested) data field within the incoming message containing the 
-  coordinates (must be a list of two coordinates, format: `field/sub-field/sub-sub-field`);
+- `MAPPING_COORDINATES_LON` `required`  `[string]`: The (nested) data field within the incoming message containing the 
+  longitude coordinate (format: `field/sub-field/sub-sub-field`);
+- `MAPPING_COORDINATES_LAT` `required`  `[string]`: The (nested) data field within the incoming message containing the 
+  latitude coordinate (format: `field/sub-field/sub-sub-field`);
 - `MAPPING_ATTRIBUTES` `required` `[dict]`: The field mapping for the transformation of an incoming message towards
   an ArcGIS object (see [field mapping](#field-mapping)).
 
