@@ -111,8 +111,8 @@ class FieldMapperService:
         return {
             "geometry": {
                 "_items": {
-                    "x": self.get_coordinate_mapping(coordinate_mapping["longitude"]),
-                    "y": self.get_coordinate_mapping(coordinate_mapping["latitude"]),
+                    "x": self.get_coordinate_mapping(coordinate_mapping["latitude"]),
+                    "y": self.get_coordinate_mapping(coordinate_mapping["longitude"]),
                 },
             },
             "attributes": {"_items": attribute_mapping},
@@ -130,10 +130,12 @@ class FieldMapperService:
         :rtype: dict
         """
 
-        if _is_int(field.split("/")[-1]):
+        field_mapping = field.split("/")
+
+        if _is_int(field_mapping[-1]):
             return {
-                "field": field,
-                "list_item": int(field.split("/")[-1]),
+                "field": "/".join(field_mapping[:-1]),
+                "list_item": int(field_mapping[-1]),
                 "required": True,
             }
 
