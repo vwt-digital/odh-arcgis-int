@@ -6,7 +6,6 @@ from google.cloud import logging as cloudlogging
 from message_service import MessageService
 
 lg_client = cloudlogging.Client()
-lg_client.get_default_handler()
 lg_client.setup_logging(log_level=logging.INFO)
 
 message_service = MessageService()
