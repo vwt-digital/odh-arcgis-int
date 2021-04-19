@@ -7,6 +7,7 @@ google-api-core==1.26.3
 google-auth==1.29.0
 google-cloud-core==1.6.0
 google-cloud-firestore==2.1.0
+google-cloud-logging==2.3.1
 google-cloud-secret-manager==2.4.0
 google-cloud-storage==1.37.1
 google-crc32c==1.1.2

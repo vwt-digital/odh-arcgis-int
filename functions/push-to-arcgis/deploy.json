@@ -1,6 +1,6 @@
 {
   "entry-point":"push_to_arcgis",
   "memory": "128MB",
-  "runtime": "python37",
+  "runtime": "python38",
   "timeout": "480"
 }
