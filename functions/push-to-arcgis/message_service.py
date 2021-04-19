@@ -6,7 +6,6 @@ from attachment_service import AttachmentService
 from field_mapper import FieldMapperService
 from firestore_service import FirestoreService
 from gis_service import GISService
-from requests.exceptions import ConnectionError
 
 
 class MessageService:
@@ -120,13 +119,9 @@ class MessageService:
             formatted_data
         )
 
-        try:
-            features_updated, features_created = gis_service.update_feature_layer(
-                edits_to_update, edits_to_create
-            )
-        except ConnectionError as e:
-            logging.error(f"Connection error when updating GIS server: {str(e)}")
-            return None
+        features_updated, features_created = gis_service.update_feature_layer(
+            edits_to_update, edits_to_create
+        )
 
         # Check for attachments
         if edits_with_attachment:
@@ -151,12 +146,7 @@ class MessageService:
                 )
                 logging.info(f"Uploaded {attachment_count} attachments")
 
-                try:
-                    gis_service.update_feature_layer(edits_to_update, [])
-                except ConnectionError as e:
-                    logging.error(
-                        f"Connection error when updating GIS server: {str(e)}"
-                    )
+                gis_service.update_feature_layer(edits_to_update, [])
 
         if self.firestore_service:
             self.firestore_service.close()
@@ -330,15 +320,9 @@ class MessageService:
                     continue
 
                 # Upload attachment to feature object
-                try:
-                    attachment_id = self.gis_service.upload_attachment_to_feature_layer(
-                        feature_id, file_type, file_name, file_content
-                    )
-                except ConnectionError as e:
-                    logging.error(
-                        f"Connection error when uploading attachment to GIS server: {str(e)}"
-                    )
-                    continue
+                attachment_id = self.gis_service.upload_attachment_to_feature_layer(
+                    feature_id, file_type, file_name, file_content
+                )
 
                 if not attachment_id:
                     continue
