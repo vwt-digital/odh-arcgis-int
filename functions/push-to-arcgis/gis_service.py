@@ -2,8 +2,9 @@ import json
 import logging
 import os
 
-import requests
+from requests.exceptions import ConnectionError
 from requests_retry_session import get_requests_session
+from retry import retry
 from utils import get_secret
 
 
@@ -29,6 +30,7 @@ class GISService:
         )
         self.token = self._get_feature_service_token()
 
+    @retry(ConnectionError, tries=3, delay=2, backoff=2)
     def _get_feature_service_token(self):
         """
         Request a new feature service token
@@ -56,7 +58,7 @@ class GISService:
                 f"Function is missing authentication configuration for retrieving ArcGIS token: {str(e)}"
             )
             return None
-        except (requests.exceptions.ConnectionError, json.decoder.JSONDecodeError) as e:
+        except json.decoder.JSONDecodeError as e:
             logging.error(f"An error occurred when retrieving ArcGIS token: {str(e)}")
             return None
         else:
@@ -105,6 +107,7 @@ class GISService:
         else:
             return None
 
+    @retry(ConnectionError, tries=3, delay=2, backoff=2)
     def update_feature_layer(self, to_update, to_create):
         """
         Update feature layer
@@ -114,8 +117,8 @@ class GISService:
         :param to_create: Features to create
         :type to_create: list
 
-        :return: Feature ID
-        :rtype: int
+        :return: Updated results, added results
+        :rtype: (list, list)
         """
 
         data_adds = [obj["object"] for obj in to_create]
@@ -137,7 +140,7 @@ class GISService:
                     f"Error when updating GIS server - server responded with status {response['error']['code']}: "
                     f"{response['error']['message']}"
                 )
-                return None
+                return None, None
 
             if len(response["addResults"]) > 0:
                 logging.info(f"Added {len(response['addResults'])} new feature(s)")
@@ -148,14 +151,12 @@ class GISService:
                 )
 
             return response["updateResults"], response["addResults"]
-        except requests.exceptions.ConnectionError as e:
-            logging.error(f"Connection error when updating GIS server: {str(e)}")
-            return None
         except json.decoder.JSONDecodeError as e:
             logging.error(f"Error when updating GIS server: {str(e)}")
             logging.info(r.content)
-            return None
+            return None, None
 
+    @retry(ConnectionError, tries=3, delay=2, backoff=2)
     def upload_attachment_to_feature_layer(
         self, feature_id, file_type, file_name, file_content
     ):
@@ -199,11 +200,6 @@ class GISService:
             )
 
             return attachment_id
-        except requests.exceptions.ConnectionError as e:
-            logging.error(
-                f"Connection error when uploading attachment to GIS server: {str(e)}"
-            )
-            return None
         except json.decoder.JSONDecodeError as e:
             logging.error(f"Error when uploading attachment to GIS server: {str(e)}")
             logging.info(r.content)
