@@ -2,12 +2,9 @@ import base64
 import json
 import logging
 
-from google.cloud import logging as cloudlogging
 from message_service import MessageService
 
-lg_client = cloudlogging.Client()
-lg_client.setup_logging(log_level=logging.INFO)
-
+logging.getLogger().setLevel(logging.INFO)
 message_service = MessageService()
 
 
