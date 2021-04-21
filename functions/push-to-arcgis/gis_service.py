@@ -37,6 +37,8 @@ class GISService:
         :rtype: str
         """
 
+        gis_r = None
+
         try:
             request_data = {
                 "f": "json",
@@ -48,19 +50,32 @@ class GISService:
                 "referer": self.arcgis_auth["referer"],
             }
 
-            data = self.requests_session.post(
-                self.arcgis_auth["url"], request_data
-            ).json()
+            gis_r = self.requests_session.post(self.arcgis_auth["url"], request_data)
+            gis_r.raise_for_status()
+
+            r_json = gis_r.json()
+
+            if "token" in r_json:
+                return r_json["token"]
+
+            logging.error(
+                f"An error occurred when retrieving ArcGIS token: {r_json.get('error', gis_r.content)}"
+            )
+            return None
         except KeyError as e:
             logging.error(
                 f"Function is missing authentication configuration for retrieving ArcGIS token: {str(e)}"
             )
             return None
-        except (requests.exceptions.ConnectionError, json.decoder.JSONDecodeError) as e:
-            logging.error(f"An error occurred when retrieving ArcGIS token: {str(e)}")
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.HTTPError,
+            json.decoder.JSONDecodeError,
+        ) as e:
+            logging.error(
+                f"An error occurred when retrieving ArcGIS token: {str(e)} ({gis_r.content})"
+            )
             return None
-        else:
-            return data["token"]
 
     def get_object_id_in_feature_layer(self, id_field, id_value):
         """
