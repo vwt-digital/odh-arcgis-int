@@ -1,5 +1,6 @@
 import logging
 from hashlib import sha256
+from itertools import islice
 
 from google.cloud import firestore
 
@@ -61,13 +62,15 @@ class FirestoreService:
         Save Firestore entities in batch
         """
 
-        batch = self.fs_client.batch()
+        for chunk in chunks(self.entities_to_save, 500):  # Batches of max 500 entities
+            batch = self.fs_client.batch()
 
-        for entity_id in self.entities_to_save:
-            entity_ref = self.fs_client.collection(self.kind).document(entity_id)
-            batch.set(entity_ref, self.entities_to_save[entity_id])
+            for entity_id in chunk:
+                entity_ref = self.fs_client.collection(self.kind).document(entity_id)
+                batch.set(entity_ref, chunk[entity_id])
 
-        batch.commit()
+            batch.commit()
+
         logging.info(
             f"Added {len(self.entities_to_save)} features to Firestore collection '{self.kind}'"
         )
@@ -122,3 +125,18 @@ class FirestoreService:
         # Save new entities to Firestore if available
         if self.entities_to_save:
             self.save_new_entities()
+
+
+def chunks(data, chunk_size):
+    """
+    Split a dictionary into chunks
+
+    :param data: Dictionary of data
+    :type data: dict
+    :param chunk_size: Chunk size
+    :type chunk_size: int
+    """
+
+    it = iter(data)
+    for i in range(0, len(data), chunk_size):
+        yield {k: data[k] for k in islice(it, chunk_size)}
