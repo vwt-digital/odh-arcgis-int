@@ -67,11 +67,12 @@ class FirestoreService:
 
         for chunk in chunks(self.entities_to_save, 500):  # Batches of max 500 entities
             batch = self.fs_client.batch()
+            batch_timestamp = (
+                datetime.utcnow().isoformat(timespec="seconds") + "Z"
+            )  # Set batch timestamp
 
             for entity_id in chunk:
-                chunk[entity_id]["updated_at"] = (
-                    datetime.utcnow().isoformat(timespec="seconds") + "Z"
-                )
+                chunk[entity_id]["updated_at"] = batch_timestamp
 
                 entity_ref = self.fs_client.collection(self.kind).document(entity_id)
                 batch.set(entity_ref, chunk[entity_id])
