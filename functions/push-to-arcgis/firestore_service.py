@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from hashlib import sha256
 from itertools import islice
 
@@ -68,6 +69,10 @@ class FirestoreService:
             batch = self.fs_client.batch()
 
             for entity_id in chunk:
+                chunk[entity_id]["updated_at"] = (
+                    datetime.utcnow().isoformat(timespec="seconds") + "Z"
+                )
+
                 entity_ref = self.fs_client.collection(self.kind).document(entity_id)
                 batch.set(entity_ref, chunk[entity_id])
                 updated_entities_count += 1
