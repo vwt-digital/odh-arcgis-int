@@ -62,17 +62,22 @@ class FirestoreService:
         Save Firestore entities in batch
         """
 
+        updated_entities_count = 0
+
         for chunk in chunks(self.entities_to_save, 500):  # Batches of max 500 entities
             batch = self.fs_client.batch()
 
             for entity_id in chunk:
                 entity_ref = self.fs_client.collection(self.kind).document(entity_id)
                 batch.set(entity_ref, chunk[entity_id])
+                updated_entities_count += 1
 
             batch.commit()
 
+        self.entities_to_save = {}
+
         logging.info(
-            f"Added {len(self.entities_to_save)} features to Firestore collection '{self.kind}'"
+            f"Added {updated_entities_count} features to Firestore collection '{self.kind}'"
         )
 
     def get_entity(self, entity_id):

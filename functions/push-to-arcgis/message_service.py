@@ -127,6 +127,14 @@ class MessageService:
         edits_updated = self.right_join(edits_to_update, features_updated, "updated")
         edits_created = self.right_join(edits_to_create, features_created, "created")
 
+        # Append entities to Firestore service
+        if self.firestore_service:
+            for entity_id in edits_created:
+                self.firestore_service.set_entity(
+                    entity_id,
+                    {"objectId": edits_created[entity_id]["id"], "entityId": entity_id},
+                )
+
         # Check for attachments
         if edits_with_attachment:
             edits_done = {**edits_updated, **edits_created}
@@ -146,12 +154,6 @@ class MessageService:
                 gis_service.update_feature_layer(edits_to_update, [])
 
         if self.firestore_service:
-            for entity_id in edits_created:
-                self.firestore_service.set_entity(
-                    entity_id,
-                    {"objectId": edits_created[entity_id]["id"], "entityId": entity_id},
-                )
-
             self.firestore_service.close()
 
     def divide_data(self, formatted_data):
