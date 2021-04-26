@@ -123,15 +123,20 @@ class MessageService:
             edits_to_update, edits_to_create
         )
 
+        # Join lists
+        edits_updated = self.right_join(edits_to_update, features_updated, "updated")
+        edits_created = self.right_join(edits_to_create, features_created, "created")
+
+        # Append entities to Firestore service
+        if self.firestore_service:
+            for entity_id in edits_created:
+                self.firestore_service.set_entity(
+                    entity_id,
+                    {"objectId": edits_created[entity_id]["id"], "entityId": entity_id},
+                )
+
         # Check for attachments
         if edits_with_attachment:
-            # Join lists
-            edits_updated = self.right_join(
-                edits_to_update, features_updated, "updated"
-            )
-            edits_created = self.right_join(
-                edits_to_create, features_created, "created"
-            )
             edits_done = {**edits_updated, **edits_created}
 
             # Publish attachments
@@ -327,9 +332,12 @@ class MessageService:
                 if not attachment_id:
                     continue
 
+                field_mapping = ["attributes"]
+                field_mapping.extend(field.split("/"))
+
                 # Add attachment ID to correct field
                 item = self.outer.mapping_service.set_in_dict(
-                    data=item, map_list=field.split("/"), value=int(attachment_id)
+                    data=item, map_list=field_mapping, value=int(attachment_id)
                 )
                 attachment_count += 1
 
