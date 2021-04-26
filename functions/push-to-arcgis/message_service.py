@@ -332,9 +332,12 @@ class MessageService:
                 if not attachment_id:
                     continue
 
+                field_mapping = ["attributes"]
+                field_mapping.extend(field.split("/"))
+
                 # Add attachment ID to correct field
                 item = self.outer.mapping_service.set_in_dict(
-                    data=item, map_list=field.split("/"), value=int(attachment_id)
+                    data=item, map_list=field_mapping, value=int(attachment_id)
                 )
                 attachment_count += 1
 
