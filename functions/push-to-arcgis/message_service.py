@@ -152,7 +152,7 @@ class MessageService:
                 attachment_count = self.count_total_uploaded_attachments(
                     edits_to_update
                 )
-                logging.info(f"Uploaded {attachment_count} attachments")
+                logging.info(f"Uploaded {attachment_count} attachment(s)")
 
                 gis_service.update_feature_layer(edits_to_update, [])
 

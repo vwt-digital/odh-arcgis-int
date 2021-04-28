@@ -226,7 +226,7 @@ class GISService:
                 f"Uploaded attachment {attachment_id} to feature with ID {feature_id}"
             )
 
-            return attachment_id
+            return int(attachment_id)
         except requests.exceptions.ConnectionError as e:
             logging.error(
                 f"Connection error when uploading attachment to GIS server: {str(e)}"
