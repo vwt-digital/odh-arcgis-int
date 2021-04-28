@@ -2,9 +2,14 @@ import base64
 import json
 import logging
 
+import config
 from message_service import MessageService
 
-logging.getLogger().setLevel(logging.INFO)
+logging.getLogger().setLevel(
+    logging.DEBUG
+    if hasattr(config, "DEBUG_LOGGING") and config.DEBUG_LOGGING
+    else logging.INFO
+)
 message_service = MessageService()
 
 
