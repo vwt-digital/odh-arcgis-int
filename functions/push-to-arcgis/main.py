@@ -3,10 +3,8 @@ import json
 import logging
 
 import config
-from cloud_logging import setup_cloud_logging
 from message_service import MessageService
 
-setup_cloud_logging()  # Setup Cloud Logging integration
 logging.getLogger().setLevel(
     logging.DEBUG
     if hasattr(config, "DEBUG_LOGGING") and config.DEBUG_LOGGING
