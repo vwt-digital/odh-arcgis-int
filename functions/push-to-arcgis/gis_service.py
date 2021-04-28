@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from datetime import datetime
 
 import requests
 from requests_retry_session import get_requests_session
@@ -133,8 +134,20 @@ class GISService:
         :rtype: int
         """
 
+        # Create list with entities to update
         data_adds = [obj["object"] for obj in to_create]
         data_updates = [obj["object"] for obj in to_update]
+
+        # Set update_at field for each entity
+        batch_timestamp = (
+            datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        )  # Set batch timestamp
+
+        for obj in data_adds:
+            obj["attributes"]["updated_at"] = batch_timestamp
+
+        for obj in data_updates:
+            obj["attributes"]["updated_at"] = batch_timestamp
 
         data = {
             "adds": json.dumps(data_adds),
@@ -152,7 +165,7 @@ class GISService:
                     f"Error when updating GIS server - server responded with status {response['error']['code']}: "
                     f"{response['error']['message']}"
                 )
-                return None
+                return None, None
 
             if len(response["addResults"]) > 0:
                 logging.info(f"Added {len(response['addResults'])} new feature(s)")
@@ -165,11 +178,11 @@ class GISService:
             return response["updateResults"], response["addResults"]
         except requests.exceptions.ConnectionError as e:
             logging.error(f"Connection error when updating GIS server: {str(e)}")
-            return None
+            return None, None
         except json.decoder.JSONDecodeError as e:
             logging.error(f"Error when updating GIS server: {str(e)}")
             logging.info(r.content)
-            return None
+            return None, None
 
     def upload_attachment_to_feature_layer(
         self, feature_id, file_type, file_name, file_content

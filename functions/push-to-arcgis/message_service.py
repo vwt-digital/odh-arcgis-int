@@ -123,6 +123,9 @@ class MessageService:
             edits_to_update, edits_to_create
         )
 
+        if not features_updated and not features_created:
+            return
+
         # Join lists
         edits_updated = self.right_join(edits_to_update, features_updated, "updated")
         edits_created = self.right_join(edits_to_create, features_created, "created")
