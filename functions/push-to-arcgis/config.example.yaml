@@ -1,0 +1,32 @@
+---
+arcgis:
+  authentication:
+    url: "https://example.com/"
+    username: "user_1"
+    secret: "gcp-secret-name"
+    request: "gettoken"
+    referer: "https://example.com/"
+  feature_service:
+    url: "https://example.com/"
+    id: "example"
+data_source: "nested/data"
+debug_logging: true
+existence_check: "firestore"
+high_workload: true
+mapping:
+  attachments:
+    - "profile_picture"
+  coordinates:
+    longitude: "geometry/coordinates/1"
+    latitude: "geometry/coordinates/0"
+  fields:
+    id:
+      field: "properties/id"
+      required: true
+    name:
+      field: "properties/user/name"
+      required: false
+    profile_picture:
+      field: "properties/user/photo"
+      required: true
+  id_field: "id"

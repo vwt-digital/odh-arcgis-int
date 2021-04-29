@@ -2,15 +2,13 @@ import base64
 import json
 import logging
 
-import config
+from configuration import Configuration
 from message_service import MessageService
 
-logging.getLogger().setLevel(
-    logging.DEBUG
-    if hasattr(config, "DEBUG_LOGGING") and config.DEBUG_LOGGING
-    else logging.INFO
-)
-message_service = MessageService()
+config = Configuration()
+
+logging.getLogger().setLevel(logging.DEBUG if config.debug_logging else logging.INFO)
+message_service = MessageService(config)
 
 
 def push_to_arcgis(request):

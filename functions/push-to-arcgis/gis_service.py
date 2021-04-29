@@ -14,7 +14,6 @@ class GISService:
         Initiates the GISService
 
         :param arcgis_auth: The ArcGIS authentication object
-        :type arcgis_auth: dict
         :param arcgis_url: The ArcGIS feature layer URL
         :type arcgis_url: str
         :param arcgis_name: The ArcGIS feature name
@@ -43,15 +42,15 @@ class GISService:
         try:
             request_data = {
                 "f": "json",
-                "username": self.arcgis_auth["username"],
+                "username": self.arcgis_auth.username,
                 "password": get_secret(
-                    os.environ["PROJECT_ID"], self.arcgis_auth["secret"]
+                    os.environ["PROJECT_ID"], self.arcgis_auth.secret
                 ),
-                "request": self.arcgis_auth["request"],
-                "referer": self.arcgis_auth["referer"],
+                "request": self.arcgis_auth.request,
+                "referer": self.arcgis_auth.referer,
             }
 
-            gis_r = self.requests_session.post(self.arcgis_auth["url"], request_data)
+            gis_r = self.requests_session.post(self.arcgis_auth.url, request_data)
             gis_r.raise_for_status()
 
             r_json = gis_r.json()

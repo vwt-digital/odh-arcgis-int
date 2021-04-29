@@ -5,43 +5,42 @@ Pub/Sub messages, create a new object based on mapping configuration and publish
 
 ## Configuration
 This function supports a field mapping for transforming data into GIS objects. The mapping is based on the following
-configuration (see [config.example.py](config.example.py) for an example):
-- `ARCGIS_AUTHENTICATION` `required` `[dict]`: A dictionary containing the authentication values for the GIS feature service 
-  (see [ArcGIS authentication](#arcgis-authentication));
-- `ARCGIS_FEATURE_URL` `required` `[str]`: A string containing the ArcGIS feature layer URL;
-- `ARCGIS_FEATURE_ID` `required` `[str]`: A string containing the ArcGIS feature ID (used for the [Existence check](#existence-check));
-- `EXISTENCE_CHECK` `[string]`: Existence check type for incoming features (see [Existence check](#existence-check));
-- `HIGH_WORKLOAD` `[boolean]`: Enables the high workload optimization. This in combination with the Firestore existence check will
-  retrieve all entities on each Cloud Function instance startup to reduce reads (defaults to `False`).
-- `MESSAGE_DATA_SOURCE` `[string]`: The (nested) data field within the incoming message (format: `field/sub-field/sub-sub-field`);
-- `MAPPING_ID_FIELD` `required` `[string]`: The (nested) identifier field for each object 
-  (format: `field/sub-field/sub-sub-field`);
-- `MAPPING_ATTACHMENTS` `[list]`: A list of fields containing an attachment that will be sent towards ArcGIS
-  (format: `field/sub-field/sub-sub-field`);
-- `MAPPING_COORDINATES_LON` `required`  `[string]`: The (nested) data field within the incoming message containing the 
-  longitude coordinate (format: `field/sub-field/sub-sub-field`);
-- `MAPPING_COORDINATES_LAT` `required`  `[string]`: The (nested) data field within the incoming message containing the 
-  latitude coordinate (format: `field/sub-field/sub-sub-field`);
-- `MAPPING_ATTRIBUTES` `required` `[dict]`: The field mapping for the transformation of an incoming message towards
-  an ArcGIS object (see [field mapping](#field-mapping)).
+configuration (see [config.example.yaml](config.example.yaml) for an example):
+~~~yaml
+arcgis:
+  authentication: "Dictionary containing the ArcGIS authentication information" # See 'ArcGIS authentication'
+  feature_service:
+    url: "A string containing the ArcGIS feature layer URL"
+    id: "A string containing the ArcGIS feature ID"
+data_source: "The (nested) data field within the incoming message (format: `field/sub-field/sub-sub-field`)"
+debug_logging: "Enable debug logging"
+existence_check: "Existence check type for incoming features" # See 'Existence check'
+high_workload: "Enables the high workload optimization. This in combination with the Firestore existence check will retrieve all entities on each Cloud Function instance startup to reduce reads (defaults to 'False')"
+mapping:
+  attachments: "A list of fields containing an attachment that will be sent towards ArcGIS (format: 'field/sub-field/sub-sub-field')"
+  coordinates:
+    longitude: "The (nested) data field within the incoming message containing the longitude coordinate (format: 'field/sub-field/sub-sub-field')"
+    latitude: "The (nested) data field within the incoming message containing the latitude coordinate (format: 'field/sub-field/sub-sub-field')"
+  fields: "The field mapping for the transformation of an incoming message towards an ArcGIS object" # See 'field mapping'
+  id_field: "The (nested) identifier field for each object (format: 'field/sub-field/sub-sub-field')"
+~~~
 
 ### ArcGIS authentication
 Before this function can post new data towards ArcGIS, first a token has to be retrieved. This is done based on some
-ArcGIS configuration. The `ARCGIS_AUTHENTICATION` attribute within the configuration must contain the following data:
+ArcGIS configuration. The `arcgis.authentication` attribute within the configuration file must contain the following data:
 
-~~~json
-{
-  "url": "The url for the token request",
-  "username": "The username for the request",
-  "secret": "The GCP Secret Manager secret name containing the secret value for the request",
-  "request": "The name of the request for retrieving a token",
-  "referer": "The referer of the request"
-}
+~~~yaml
+authentication:
+    url: "The url for the token request"
+    username: "The username for the request"
+    secret: "The GCP Secret Manager secret name containing the secret value for the request"
+    request: "The name of the request for retrieving a token"
+    referer: "The referer of the request"
 ~~~
 
 ### Existence check
 To enable the functionality to check if the incoming objects are already within the ArcGIS feature layer, the configuration
-attribute `EXISTENCE_CHECK` can be defined. When an existing feature is found, it will update this feature. When it does
+attribute `existence_check` can be defined. When an existing feature is found, it will update this feature. When it does
 not exist yet, a new feature will be added. The check can be one of the following values:
 - `arcgis`: This enables the existence check within ArcGIS itself. For each new object it will check if the feature 
   exists by querying the ArcGIS API (this is not recommended for frequent updates).
@@ -72,15 +71,11 @@ retrieved from. Nested fields can be specified by seperating it with a `/`.
 
 ###### Mapping
 
-~~~json
-{
-  "id": {
-    "field": "properties/id"
-  },
-  "name": {
-    "field": "properties/user/name"
-  }
-}
+~~~yaml
+id:
+  field: "properties/id"
+name:
+  field: "properties/user/name"
 ~~~
 
 ###### Result
@@ -99,16 +94,12 @@ found within the data or is empty, the message won't be published towards the GI
 
 ###### Mapping
 
-~~~json
-{
-  "id": {
-    "field": "properties/id",
-    "required": true
-  },
-  "name": {
-    "field": "properties/user/name"
-  }
-}
+~~~yaml
+id:
+  field: "properties/id"
+  "required": true
+name:
+  field: "properties/user/name"
 ~~~
 
 > The default value of the `required` attribute is `False`
@@ -131,13 +122,10 @@ list-item can be specified.
 
 ###### Mapping
 
-~~~json
-{
-  "latitude": {
-    "field": "coordinates",
-    "list_item": 1
-  }
-}
+~~~yaml
+latitude:
+  field: "coordinates"
+  list_item: 1
 ~~~
 
 ###### Result
@@ -168,23 +156,17 @@ starting character position, and the ending character position:
 
 ###### Mapping
 
-~~~json
-{
-  "postcode": {
-    "field": "address",
-    "character_set": [
-      null,
-      5
-    ]
-  },
-  "city": {
-    "field": "address",
-    "character_set": [
-      6,
-      null
-    ]
-  }
-}
+~~~yaml
+postcode:
+  field: "address"
+  character_set:
+    - null
+    - 5
+city:
+  field: "address"
+  character_set:
+    - 6
+    - null
 ~~~
 
 ###### Result
@@ -205,7 +187,7 @@ fill this with the fields specified within the `_items` list.
 
 ##### Data
 
-~~~json
+~~~yaml
 {
   "properties": {
     "id": 123456,
@@ -218,21 +200,15 @@ fill this with the fields specified within the `_items` list.
 
 ###### Mapping
 
-~~~json
-{
-  "attributes": {
-    "_items": {
-      "id": {
-        "field": "properties/id",
-        "required": true
-      },
-      "name": {
-        "field": "properties/user/name",
-        "required": false
-      }
-    }
-  }
-}
+~~~yaml
+attributes:
+  _items:
+    id:
+      field: "properties/id"
+      required: true
+    name:
+      field: "properties/user/name"
+      required: false
 ~~~
 
 ###### Result
