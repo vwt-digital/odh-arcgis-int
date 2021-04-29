@@ -1,7 +1,6 @@
 import logging
 import sys
 
-import config
 from attachment_service import AttachmentService
 from field_mapper import FieldMapperService
 from firestore_service import FirestoreService
@@ -9,61 +8,36 @@ from gis_service import GISService
 
 
 class MessageService:
-    def __init__(self):
+    def __init__(self, config):
         """Initiate function configuration"""
 
+        self.config = config
+
         if (
-            not hasattr(config, "MAPPING_ATTRIBUTES")
-            or not hasattr(config, "MAPPING_COORDINATES_LON")
-            or not hasattr(config, "MAPPING_COORDINATES_LAT")
-            or not hasattr(config, "MAPPING_ID_FIELD")
-            or not hasattr(config, "ARCGIS_AUTHENTICATION")
-            or not hasattr(config, "ARCGIS_FEATURE_URL")
-            or not hasattr(config, "ARCGIS_FEATURE_ID")
+            not self.config.mapping.fields
+            or not self.config.mapping.coordinates.longitude
+            or not self.config.mapping.coordinates.latitude
+            or not self.config.mapping.id_field
+            or not self.config.arcgis_auth
+            or not self.config.arcgis_feature_service.url
+            or not self.config.arcgis_feature_service.id
         ):
             logging.error("Function is missing required configuration")
             sys.exit(1)
 
-        # Retrieve current mapping configuration
-        self.mapping_attributes = config.MAPPING_ATTRIBUTES  # Required configuration
-        self.mapping_coordinates = {
-            "longitude": config.MAPPING_COORDINATES_LON,
-            "latitude": config.MAPPING_COORDINATES_LAT,
-        }  # Required configuration
-        self.mapping_id_field = config.MAPPING_ID_FIELD  # Required configuration
-        mapping_attachments = (
-            config.MAPPING_ATTACHMENTS
-            if hasattr(config, "MAPPING_ATTACHMENTS")
-            else None
-        )
-
-        # Retrieve ArcGIS configuration
-        self.arcgis_auth = config.ARCGIS_AUTHENTICATION  # Required configuration
-        self.arcgis_url = config.ARCGIS_FEATURE_URL  # Required configuration
-        self.arcgis_name = config.ARCGIS_FEATURE_ID  # Required configuration
-
-        # Retrieve other configuration
-        message_data_source = (
-            config.MESSAGE_DATA_SOURCE
-            if hasattr(config, "MESSAGE_DATA_SOURCE")
-            else None
-        )
-        self.existence_check = (
-            config.EXISTENCE_CHECK if hasattr(config, "EXISTENCE_CHECK") else None
-        )
-        high_workload = (
-            config.HIGH_WORKLOAD if hasattr(config, "HIGH_WORKLOAD") else False
-        )
-
+        # Initiate import services
+        self.attachment_service = AttachmentService()
         self.firestore_service = (
-            FirestoreService(high_workload=high_workload, kind=self.arcgis_name)
-            if self.existence_check == "firestore"
+            FirestoreService(
+                high_workload=self.config.high_workload,
+                kind=self.config.arcgis_feature_service.id,
+            )
+            if self.config.existence_check.firestore
             else None
         )
-        self.attachment_service = AttachmentService()  # Initiate attachment service
         self.mapping_service = FieldMapperService(
-            message_data_source, mapping_attachments
-        )  # Initiate mapper service
+            self.config.data_source, self.config.mapping.attachments
+        )
 
         self.item_processor = None
 
@@ -80,7 +54,7 @@ class MessageService:
 
         # Create mapping service and retrieve ArcGIS object mapping
         mapping_fields = self.mapping_service.get_mapping(
-            self.mapping_attributes, self.mapping_coordinates
+            self.config.mapping.fields, self.config.mapping.coordinates
         )
 
         # Retrieve mapped data
@@ -92,7 +66,11 @@ class MessageService:
             return "No Content", 204
 
         # Create ArcGIS service
-        gis_service = GISService(self.arcgis_auth, self.arcgis_url, self.arcgis_name)
+        gis_service = GISService(
+            self.config.arcgis_auth,
+            self.config.arcgis_feature_service.url,
+            self.config.arcgis_feature_service.id,
+        )
 
         if not gis_service.token:
             return "Service Unavailable", 503
@@ -123,6 +101,9 @@ class MessageService:
             edits_to_update, edits_to_create
         )
 
+        if not features_updated and not features_created:
+            return
+
         # Join lists
         edits_updated = self.right_join(edits_to_update, features_updated, "updated")
         edits_created = self.right_join(edits_to_create, features_created, "created")
@@ -149,7 +130,7 @@ class MessageService:
                 attachment_count = self.count_total_uploaded_attachments(
                     edits_to_update
                 )
-                logging.info(f"Uploaded {attachment_count} attachments")
+                logging.info(f"Uploaded {attachment_count} attachment(s)")
 
                 gis_service.update_feature_layer(edits_to_update, [])
 
@@ -288,13 +269,16 @@ class MessageService:
             :rtype: boolean
             """
 
+            field_mapping = ["attributes"]
+            field_mapping.extend(self.outer.config.mapping.id_field.split("/"))
+
             # Extract attachments from object
             item, item_attachments = self.outer.mapping_service.extract_attachments(
                 data_object=item
             )
             item_id = self.outer.mapping_service.get_from_dict(
                 data=item,
-                map_list=["attributes", self.outer.mapping_id_field],
+                map_list=field_mapping,
                 field_config={},
             )
             # Check if feature already exists
@@ -360,17 +344,17 @@ class MessageService:
             :rtype: int
             """
 
-            if self.outer.existence_check == "arcgis":
+            if self.outer.config.existence_check.arcgis:
                 return self.gis_service.get_object_id_in_feature_layer(
-                    self.outer.mapping_id_field, id_value
+                    self.outer.config.mapping.id_field, id_value
                 )
 
-            if self.outer.existence_check == "firestore":
+            if self.outer.config.existence_check.firestore:
                 return self.get_existing_object_id_in_firestore(id_value)
 
-            if self.outer.existence_check:
+            if self.outer.config.existence_check.value:
                 logging.error(
-                    f"The existence check value '{self.outer.existence_check}' is not supported, "
+                    f"The existence check value '{self.outer.config.existence_check.value}' is not supported, "
                     "supported types: 'arcgis', 'firestore'"
                 )
 

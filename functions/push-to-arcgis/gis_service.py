@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from datetime import datetime
 
 import requests
 from requests_retry_session import get_requests_session
@@ -13,7 +14,6 @@ class GISService:
         Initiates the GISService
 
         :param arcgis_auth: The ArcGIS authentication object
-        :type arcgis_auth: dict
         :param arcgis_url: The ArcGIS feature layer URL
         :type arcgis_url: str
         :param arcgis_name: The ArcGIS feature name
@@ -42,15 +42,15 @@ class GISService:
         try:
             request_data = {
                 "f": "json",
-                "username": self.arcgis_auth["username"],
+                "username": self.arcgis_auth.username,
                 "password": get_secret(
-                    os.environ["PROJECT_ID"], self.arcgis_auth["secret"]
+                    os.environ["PROJECT_ID"], self.arcgis_auth.secret
                 ),
-                "request": self.arcgis_auth["request"],
-                "referer": self.arcgis_auth["referer"],
+                "request": self.arcgis_auth.request,
+                "referer": self.arcgis_auth.referer,
             }
 
-            gis_r = self.requests_session.post(self.arcgis_auth["url"], request_data)
+            gis_r = self.requests_session.post(self.arcgis_auth.url, request_data)
             gis_r.raise_for_status()
 
             r_json = gis_r.json()
@@ -133,8 +133,20 @@ class GISService:
         :rtype: int
         """
 
+        # Create list with entities to update
         data_adds = [obj["object"] for obj in to_create]
         data_updates = [obj["object"] for obj in to_update]
+
+        # Set update_at field for each entity
+        batch_timestamp = (
+            datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        )  # Set batch timestamp
+
+        for obj in data_adds:
+            obj["attributes"]["updated_at"] = batch_timestamp
+
+        for obj in data_updates:
+            obj["attributes"]["updated_at"] = batch_timestamp
 
         data = {
             "adds": json.dumps(data_adds),
@@ -152,7 +164,7 @@ class GISService:
                     f"Error when updating GIS server - server responded with status {response['error']['code']}: "
                     f"{response['error']['message']}"
                 )
-                return None
+                return None, None
 
             if len(response["addResults"]) > 0:
                 logging.info(f"Added {len(response['addResults'])} new feature(s)")
@@ -165,11 +177,11 @@ class GISService:
             return response["updateResults"], response["addResults"]
         except requests.exceptions.ConnectionError as e:
             logging.error(f"Connection error when updating GIS server: {str(e)}")
-            return None
+            return None, None
         except json.decoder.JSONDecodeError as e:
             logging.error(f"Error when updating GIS server: {str(e)}")
             logging.info(r.content)
-            return None
+            return None, None
 
     def upload_attachment_to_feature_layer(
         self, feature_id, file_type, file_name, file_content
@@ -213,7 +225,7 @@ class GISService:
                 f"Uploaded attachment {attachment_id} to feature with ID {feature_id}"
             )
 
-            return attachment_id
+            return int(attachment_id)
         except requests.exceptions.ConnectionError as e:
             logging.error(
                 f"Connection error when uploading attachment to GIS server: {str(e)}"

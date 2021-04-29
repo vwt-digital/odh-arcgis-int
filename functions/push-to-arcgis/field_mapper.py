@@ -111,8 +111,8 @@ class FieldMapperService:
         return {
             "geometry": {
                 "_items": {
-                    "x": self.get_coordinate_mapping(coordinate_mapping["latitude"]),
-                    "y": self.get_coordinate_mapping(coordinate_mapping["longitude"]),
+                    "x": self.get_coordinate_mapping(coordinate_mapping.latitude),
+                    "y": self.get_coordinate_mapping(coordinate_mapping.longitude),
                 },
             },
             "attributes": {"_items": attribute_mapping},

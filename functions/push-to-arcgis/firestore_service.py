@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from hashlib import sha256
 from itertools import islice
 
@@ -20,6 +20,7 @@ class FirestoreService:
         self.kind = kind
         self.fs_client = firestore.Client()
 
+        self.entities_updated_at = None
         self.entity_list = self.get_all_entities() if high_workload else None
         self.entities_to_save = {}
 
@@ -55,6 +56,8 @@ class FirestoreService:
         logging.info(
             f"Retrieved {len(entity_list)} entities from collection '{self.kind}' for high workload optimization"
         )
+
+        self.entities_updated_at = datetime.utcnow()
 
         return entity_list
 
@@ -136,6 +139,10 @@ class FirestoreService:
         # Save new entities to Firestore if available
         if self.entities_to_save:
             self.save_new_entities()
+
+        # Update entity list from Firestore if 1 day old
+        if self.entities_updated_at < (datetime.utcnow() - timedelta(days=1)):
+            self.entity_list = self.get_all_entities()
 
 
 def chunks(data, chunk_size):
