@@ -269,15 +269,16 @@ class MessageService:
             :rtype: boolean
             """
 
+            field_mapping = ["attributes"]
+            field_mapping.extend(self.outer.config.mapping.id_field.split("/"))
+
             # Extract attachments from object
             item, item_attachments = self.outer.mapping_service.extract_attachments(
                 data_object=item
             )
             item_id = self.outer.mapping_service.get_from_dict(
                 data=item,
-                map_list=["attributes"].extend(
-                    self.outer.config.mapping.id_field.split("/")
-                ),
+                map_list=field_mapping,
                 field_config={},
             )
             # Check if feature already exists
