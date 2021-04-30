@@ -160,7 +160,6 @@ class MessageService:
                     entity_id,
                     {
                         "entityId": entity_id,
-                        "layerId": edits_created[entity_id]["layer_id"],
                         "objectId": edits_created[entity_id]["id"],
                     },
                 )
