@@ -141,7 +141,9 @@ class FirestoreService:
             self.save_new_entities()
 
         # Update entity list from Firestore if 1 day old
-        if self.entities_updated_at < (datetime.utcnow() - timedelta(days=1)):
+        if self.entities_updated_at and self.entities_updated_at < (
+            datetime.utcnow() - timedelta(days=1)
+        ):
             self.entity_list = self.get_all_entities()
 
 

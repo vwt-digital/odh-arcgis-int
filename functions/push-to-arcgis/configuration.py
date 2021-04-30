@@ -109,12 +109,20 @@ class ArcGISFeatureServiceConfiguration:
     @property
     def url(self):
         """ArcGIS Feature Service URL."""
-        return self._feature_service.get("url", None)
+        if "url" in self._feature_service:
+            return self._feature_service["url"].rstrip("/")
+
+        return None
 
     @property
     def id(self):
         """ArcGIS Feature Service ID."""
         return self._feature_service.get("id", None)
+
+    @property
+    def layers(self):
+        """ArcGIS Feature Service layers."""
+        return self._feature_service.get("layers", None)
 
 
 class ExistenceCheckConfiguration:
@@ -175,6 +183,11 @@ class MappingConfiguration:
     def id_field(self):
         """Field mapping ID field."""
         return self._configuration.get("id_field", None)
+
+    @property
+    def layer_field(self):
+        """Field mapping layer field."""
+        return self._configuration.get("layer_field", None)
 
     class CoordinateConfiguration:
         """

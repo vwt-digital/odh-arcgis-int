@@ -12,6 +12,7 @@ arcgis:
   feature_service:
     url: "A string containing the ArcGIS feature layer URL"
     id: "A string containing the ArcGIS feature ID"
+    layers: "A list containing all feature service layers. When 'layer_field' is defined, all layers have to be specified here."
 data_source: "The (nested) data field within the incoming message (format: `field/sub-field/sub-sub-field`)"
 debug_logging: "Enable debug logging"
 existence_check: "Existence check type for incoming features" # See 'Existence check'
@@ -23,6 +24,7 @@ mapping:
     latitude: "The (nested) data field within the incoming message containing the latitude coordinate (format: 'field/sub-field/sub-sub-field')"
   fields: "The field mapping for the transformation of an incoming message towards an ArcGIS object" # See 'field mapping'
   id_field: "The (nested) identifier field for each object (format: 'field/sub-field/sub-sub-field')"
+  layer_field: "The (nested) layer identifier field for each object (format: 'field/sub-field/sub-sub-field'). When empty, default layer is 0"
 ~~~
 
 ### ArcGIS authentication

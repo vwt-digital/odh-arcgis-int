@@ -176,13 +176,20 @@ class FieldMapperService:
                 )
                 continue
 
+            if isinstance(field_config, str):
+                field_mapping = field_config.split("/")
+                formatted_dict[field] = self.get_from_dict(
+                    data=data, map_list=field_mapping, field_config={}
+                )
+                continue
+
             logging.error(
                 f"Mapping for field '{field}' is incorrect, skipping this field"
             )
 
         return formatted_dict
 
-    def get_mapped_data(self, data_object, mapping_fields):
+    def get_mapped_data(self, data_object, mapping_fields, layer_field):
         """
         Transform data to a list of mapped data
 
@@ -190,6 +197,8 @@ class FieldMapperService:
         :type data_object: dict
         :param mapping_fields: The field mapping for this instance
         :type mapping_fields: dict
+        :param layer_field: The field where the ArcGIS layer is specified
+        :type layer_field: str
 
         :return: List of mapped data
         :rtype: list
@@ -215,12 +224,19 @@ class FieldMapperService:
         for data in data_object:
             try:
                 mapped_data = self.map_data(mapping_fields, data)
+                mapped_layer = (
+                    self.get_from_dict(
+                        data=data, map_list=layer_field.split("/"), field_config={}
+                    )
+                    if layer_field
+                    else None
+                )
             except (ValueError, KeyError) as e:
                 logging.info(f"An error occurred during formatting data: {str(e)}")
                 logging.debug(json.dumps(data))
                 continue
             else:
-                formatted_data.append(mapped_data)
+                formatted_data.append({"data": mapped_data, "layer_id": mapped_layer})
 
         return formatted_data
 
