@@ -77,23 +77,26 @@ class GISService:
             )
             return None
 
-    def get_object_id_in_feature_layer(self, layer_id, id_field, id_value):
+    def get_objectids_in_feature_layer(self, layer_id, id_field, id_values):
         """
-        Check if feature already exist within ArcGIS Feature Layer
+        Check if features already exist within ArcGIS Feature Layer
 
         :param layer_id: Layer ID
         :type layer_id: int
         :param id_field: ID field
         :type id_field: str
-        :param id_value: ID value
+        :param id_values: ID value
+        :type id_values: list
 
-        :return: Feature ID
-        :rtype: int
+        :return: Feature's object IDs
+        :rtype: dict
         """
 
         params = {
-            "where": f"{id_field}='{id_value}'",
-            "returnIdsOnly": True,
+            "where": "{} in ({})".format(
+                id_field, ",".join(f"'{key}'" for key in id_values)
+            ),
+            "outFields": f"{id_field},objectid",
             "f": "json",
             "token": self.token,
         }
@@ -104,28 +107,29 @@ class GISService:
 
         try:
             response = r.json()
-
-            if len(response.get("objectIds", [])) > 0:
-                feature_id = response["objectIds"][-1]
-                logging.debug(
-                    f"Found existing feature for '{id_value}' in map layer {layer_id} with ID {feature_id}"
-                )
-
-                return feature_id
-
-            if "error" in response:
-                logging.error(
-                    f"Searching for existing feature in map layer '{layer_id}' resulted in an error: "
-                    + json.dumps(response["error"])
-                )
         except json.decoder.JSONDecodeError as e:
             logging.error(
-                f"Error when searching for feature in GIS server layer {layer_id}: {str(e)}"
+                f"Error when searching for features in GIS server layer {layer_id}: {str(e)}"
             )
             logging.info(r.content)
-            return None
+            return {}
         else:
-            return None
+            if "error" in response:
+                logging.error(
+                    f"Searching for existing features in map layer '{layer_id}' resulted in an error: "
+                    + json.dumps(response["error"])
+                )
+                return {}
+
+            feature_ids = {}
+
+            for feature in response.get("features", []):
+                feature_id = feature["attributes"][id_field]
+                object_id = int(feature["attributes"]["objectid"])
+
+                feature_ids[feature_id] = object_id
+
+            return feature_ids
 
     def update_feature_layer(self, layer_id, to_update, to_create):
         """

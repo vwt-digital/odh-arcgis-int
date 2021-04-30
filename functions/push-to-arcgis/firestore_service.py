@@ -61,6 +61,27 @@ class FirestoreService:
 
         return entity_list
 
+    def get_entities(self, entity_ids):
+        """
+        Get multiple Firestore entities
+
+        :param entity_ids: Entity IDs
+        :type entity_ids: list
+
+        :return: Entities
+        :rtype: list
+        """
+
+        entities = []
+
+        for entity_id in entity_ids:
+            entity = self.get_entity(entity_id)
+
+            if entity:
+                entities.append(entity)
+
+        return entities
+
     def save_new_entities(self):
         """
         Save Firestore entities in batch
@@ -109,7 +130,7 @@ class FirestoreService:
             if doc.exists:
                 return doc.to_dict()
 
-        if entity_id_hash in self.entity_list:
+        if self.entity_list and entity_id_hash in self.entity_list:
             return self.entity_list.get(entity_id_hash)
 
         return None

@@ -80,11 +80,14 @@ class MessageService:
         # Create Item Processor
         self.item_processor = self.ItemProcessor(outer=self, gis_service=gis_service)
 
-        # Divide data
-        edits, edits_with_attachment = self.divide_data(formatted_data)
+        # Prepare data for ArcGIS interaction
+        edits, edits_with_attachment = self.format_data_into_edits(formatted_data)
+        arcgis_data = self.prepare_edits_for_update(edits)
 
         # Publish data to ArcGIS
-        edits_updated, edits_created = self.publish_data_to_arcgis(edits, gis_service)
+        edits_updated, edits_created = self.publish_data_to_arcgis(
+            arcgis_data, gis_service
+        )
 
         # Check for attachments and publish them
         if edits_with_attachment:
@@ -117,7 +120,7 @@ class MessageService:
         updated_layer_count = {}
         created_layer_count = {}
 
-        for layer_id in edits:
+        for layer_id in sorted(edits):
             features_updated, features_created = gis_service.update_feature_layer(
                 layer_id, edits[layer_id]["to_update"], edits[layer_id]["to_create"]
             )
@@ -141,7 +144,7 @@ class MessageService:
                 }  # Join data
 
         if not edits_updated and not edits_created:
-            return
+            return None, None
 
         if updated_layer_count:
             logging.info(
@@ -160,53 +163,117 @@ class MessageService:
                     entity_id,
                     {
                         "entityId": entity_id,
+                        "layerId": edits_created[entity_id]["layer_id"],
                         "objectId": edits_created[entity_id]["id"],
                     },
                 )
 
         return edits_updated, edits_created
 
-    def divide_data(self, formatted_data):
+    def format_data_into_edits(self, formatted_data):
         """
-        Divide data into edits to update, to create and with attachments
+        Format data into layers
 
         :param formatted_data: Formatted data
         :type formatted_data: list
 
-        :return: Edits to update and create, Edits with attachments
-        :rtype: (dict, dict)
+        :return: ArcGIS edits, ArcGIS edits with attachments
+        :rtype: (list, dict)
         """
 
-        edits = {}
+        edits = []
         edits_with_attachment = {}
 
         for item in formatted_data:
             (
                 layer_id,
-                feature_id,
                 item_obj,
                 item_attachments,
                 item_id,
-            ) = self.item_processor.process(item)
+            ) = self.item_processor.extract_data(item)
 
             if layer_id is None:  # Skip message if it does not have a valid layer ID
                 continue
 
-            if layer_id not in edits:
-                edits[layer_id] = {"to_update": [], "to_create": []}
-
-            item_dict = {"item_id": item_id, "layer_id": layer_id, "object": item_obj}
-
-            if feature_id:
-                item_dict["object"]["attributes"]["objectid"] = feature_id
-                edits[layer_id]["to_update"].append(item_dict)
-            else:
-                edits[layer_id]["to_create"].append(item_dict)
+            edits.append({"item_id": item_id, "layer_id": layer_id, "object": item_obj})
 
             if item_attachments:
                 edits_with_attachment[item_id] = item_attachments
 
         return edits, edits_with_attachment
+
+    def prepare_edits_for_update(self, edits):
+        """
+        Prepare edits for update
+
+        :param edits: ArcGIS edits
+        :type edits: list
+
+        :return: ArcGIS edits
+        :rtype: dict
+        """
+
+        layers_to_check = (
+            self.config.arcgis_feature_service.layers
+            if self.config.arcgis_feature_service.layers
+            else [0]
+        )
+        edits_to_match = list(set([edit["item_id"] for edit in edits]))
+        layer_edits = {}
+
+        # Match features on multiple layers
+        edits_matched = self.match_existing_features(edits_to_match, layers_to_check)
+
+        for edit in edits:
+            item_id = edit["item_id"]
+
+            if item_id in edits_matched:
+                edit["object"]["attributes"]["objectid"] = edits_matched[item_id][
+                    "object_id"
+                ]  # Set ObjectID in edit
+
+                layer_id = edits_matched[item_id]["layer_id"]
+                update_type = "to_update"
+            else:
+                layer_id = edit["layer_id"]
+                update_type = "to_create"
+
+            if layer_id not in layer_edits:
+                layer_edits[layer_id] = {"to_update": [], "to_create": []}
+
+            layer_edits[layer_id][update_type].append(edit)
+
+        return layer_edits
+
+    def match_existing_features(self, edit_ids, layer_ids):
+        """
+        Match existing features
+
+        :param edit_ids: Edit IDs
+        :type edit_ids: list
+        :param layer_ids: ArcGIS layers
+        :type layer_ids: list
+
+        :return: Matched edits
+        :rtype: dict
+        """
+
+        edits_matched = {}
+
+        for layer_id in layer_ids:
+            object_ids = self.item_processor.get_existing_object_id(layer_id, edit_ids)
+
+            for item_id in object_ids:
+                edits_matched[item_id] = {
+                    "layer_id": layer_id,
+                    "object_id": object_ids[item_id],
+                }
+                edit_ids.remove(item_id)
+
+            if not edit_ids:
+                break
+
+        return edits_matched
 
     def publish_attachments_to_arcgis(
         self, edits_done, edits_with_attachment, gis_service
@@ -310,15 +377,15 @@ class MessageService:
             self.outer = outer
             self.gis_service = gis_service
 
-        def process(self, item):
+        def extract_data(self, item):
             """
-            Processes single item
+            Extract data from item
 
             :param item: Item
             :type item: dict
 
-            :return: Layer ID, feature ID, item data, item attachments, item ID
-            :rtype: (int, int, dict, dict, int)
+            :return: Layer ID, item data, item attachments, item ID
+            :rtype: (int, dict, dict, int)
             """
 
             field_mapping = ["attributes"]
@@ -338,10 +405,7 @@ class MessageService:
             # Retrieve feature's layer ID
             layer_id = self.get_layer_id(layer_id=item["layer_id"], item_id=item_id)
 
-            # Check if feature already exists
-            feature_id = self.get_existing_object_id(layer_id, item_id)
-
-            return layer_id, feature_id, item_data, item_attachments, item_id
+            return layer_id, item_data, item_attachments, item_id
 
         def process_attachments(self, layer_id, feature_id, item, item_attachments):
             """
@@ -433,25 +497,26 @@ class MessageService:
             # Return default layer ID '0'
             return 0
 
-        def get_existing_object_id(self, layer_id, id_value):
+        def get_existing_object_id(self, layer_id, id_values):
             """
             Check if feature already exist
 
             :param layer_id: Layer ID
             :type layer_id: int
-            :param id_value: ID value
+            :param id_values: ID values
+            :type id_values: list
 
             :return: Feature ID
             :rtype: int
             """
 
             if self.outer.config.existence_check.arcgis:
-                return self.gis_service.get_object_id_in_feature_layer(
-                    layer_id, self.outer.config.mapping.id_field, id_value
+                return self.gis_service.get_objectids_in_feature_layer(
+                    layer_id, self.outer.config.mapping.id_field, id_values
                 )
 
             if self.outer.config.existence_check.firestore:
-                return self.get_existing_object_id_in_firestore(id_value)
+                return self.get_existing_objectids_in_firestore(id_values)
 
             if self.outer.config.existence_check.value:
                 logging.error(
@@ -461,22 +526,27 @@ class MessageService:
 
             return None
 
-        def get_existing_object_id_in_firestore(self, id_value):
+        def get_existing_objectids_in_firestore(self, id_values):
             """
             Check if feature already exist within Firestore database
 
-            :param id_value: ID value
+            :param id_values: ID values
+            :type id_values: list
 
             :return: Feature ID
             :rtype: int
             """
 
-            entity = self.outer.firestore_service.get_entity(id_value)
+            entities = self.outer.firestore_service.get_entities(id_values)
 
-            if entity and "objectId" in entity:
-                return entity["objectId"]
+            feature_ids = {}
+            for entity in entities:
+                feature_id = entity["entityId"]
+                object_id = entity["objectId"]
 
-            return None
+                feature_ids[feature_id] = object_id
+
+            return feature_ids
 
 
 def dict_to_string(data):
