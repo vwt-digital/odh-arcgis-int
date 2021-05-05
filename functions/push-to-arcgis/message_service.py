@@ -147,13 +147,13 @@ class MessageService:
 
         # Append entities to Firestore service
         if self.firestore_service:
-            for entity_id in edits_created:
+            for entity_id in edits_created["objects"]:
                 self.firestore_service.set_entity(
                     entity_id,
                     {
                         "entityId": entity_id,
-                        "layerId": edits_created[entity_id]["layer_id"],
-                        "objectId": edits_created[entity_id]["id"],
+                        "layerId": edits_created["objects"][entity_id]["layer_id"],
+                        "objectId": edits_created["objects"][entity_id]["id"],
                     },
                 )
 
