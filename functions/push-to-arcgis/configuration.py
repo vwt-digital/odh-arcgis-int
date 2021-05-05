@@ -166,6 +166,11 @@ class MappingConfiguration:
         return self._configuration.get("attachments", None)
 
     @property
+    def disable_updated_at(self):
+        """Disable the updated_at field addition."""
+        return self._configuration.get("disable_updated_at", False)
+
+    @property
     def coordinates(self):
         """Coordinate mapping."""
 
@@ -208,3 +213,17 @@ class MappingConfiguration:
         def latitude(self):
             """Longitude mapping."""
             return self._configuration.get("latitude", None)
+
+        @property
+        def conversion(self):
+            """Coordinate conversion type."""
+            conversion_types = [
+                "default",
+                "wgs84-web_mercator",
+            ]  # List of supported conversion types
+            conversion_type = self._configuration.get("conversion", "default")
+
+            if conversion_type not in conversion_types:
+                return None
+
+            return conversion_type

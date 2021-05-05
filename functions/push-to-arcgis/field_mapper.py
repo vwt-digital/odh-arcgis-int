@@ -3,9 +3,13 @@ import logging
 import operator
 from functools import reduce
 
+import pyproj
+
 
 class FieldMapperService:
-    def __init__(self, mapping_data_source, mapping_attachments):
+    def __init__(
+        self, mapping_data_source, mapping_attachments, coordination_conversion_type
+    ):
         """
         Initiates the FieldMapperService
 
@@ -13,10 +17,13 @@ class FieldMapperService:
         :type mapping_data_source: str
         :param mapping_attachments: A list of attachment fields
         :type mapping_attachments: list
+        :param coordination_conversion_type: The coordination conversion type
+        :type coordination_conversion_type: str
         """
 
         self.mapping_data_source = mapping_data_source
         self.mapping_attachments = mapping_attachments
+        self.coordination_conversion_type = coordination_conversion_type
 
     @staticmethod
     def transform_value(field_mapping, field_config, value):
@@ -111,8 +118,12 @@ class FieldMapperService:
         return {
             "geometry": {
                 "_items": {
-                    "x": self.get_coordinate_mapping(coordinate_mapping.latitude),
-                    "y": self.get_coordinate_mapping(coordinate_mapping.longitude),
+                    "latitude": self.get_coordinate_mapping(
+                        coordinate_mapping.latitude
+                    ),
+                    "longitude": self.get_coordinate_mapping(
+                        coordinate_mapping.longitude
+                    ),
                 },
             },
             "attributes": {"_items": attribute_mapping},
@@ -231,6 +242,10 @@ class FieldMapperService:
                     if layer_field
                     else None
                 )
+
+                mapped_data["geometry"] = self.convert_lonlat_to_geometry(
+                    mapped_data["geometry"]
+                )
             except (ValueError, KeyError) as e:
                 logging.info(f"An error occurred during formatting data: {str(e)}")
                 logging.debug(json.dumps(data))
@@ -239,6 +254,34 @@ class FieldMapperService:
                 formatted_data.append({"data": mapped_data, "layer_id": mapped_layer})
 
         return formatted_data
+
+    def convert_lonlat_to_geometry(self, coordinates):
+        """
+        Convert longitude and latitude to geometry
+
+        :param coordinates: Coordinates
+        :type coordinates: dict
+
+        :return: Geometry
+        :rtype: dict
+        """
+
+        coordinate_y = coordinates["longitude"]
+        coordinate_x = coordinates["latitude"]
+
+        if (
+            self.coordination_conversion_type == "wgs84-web_mercator"
+        ):  # WGS 84 Web Mercator projection
+            input_grid = pyproj.Proj(projparams="epsg:3857")
+            wgs84 = pyproj.Proj(projparams="epsg:4326")
+            converted_geometry = pyproj.transform(
+                wgs84, input_grid, coordinate_y, coordinate_x
+            )
+
+            coordinate_y = converted_geometry[0]
+            coordinate_x = converted_geometry[1]
+
+        return {"x": coordinate_x, "y": coordinate_y}
 
     def extract_attachments(self, data_object):
         """

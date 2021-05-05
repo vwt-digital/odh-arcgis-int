@@ -17,6 +17,7 @@ class MessageService:
             not self.config.mapping.fields
             or not self.config.mapping.coordinates.longitude
             or not self.config.mapping.coordinates.latitude
+            or not self.config.mapping.coordinates.conversion
             or not self.config.mapping.id_field
             or not self.config.arcgis_auth
             or not self.config.arcgis_feature_service.url
@@ -36,7 +37,9 @@ class MessageService:
             else None
         )
         self.mapping_service = FieldMapperService(
-            self.config.data_source, self.config.mapping.attachments
+            self.config.data_source,
+            self.config.mapping.attachments,
+            self.config.mapping.coordinates.conversion,
         )
 
         self.item_processor = None
@@ -63,6 +66,7 @@ class MessageService:
             mapping_fields=mapping_fields,
             layer_field=self.config.mapping.layer_field,
         )
+
         if not formatted_data:
             logging.info("No data to be published towards ArcGIS")
             return "No Content", 204
@@ -72,6 +76,7 @@ class MessageService:
             self.config.arcgis_auth,
             self.config.arcgis_feature_service.url,
             self.config.arcgis_feature_service.id,
+            self.config.mapping.disable_updated_at,
         )
 
         if not gis_service.token:
@@ -85,7 +90,7 @@ class MessageService:
         arcgis_data = self.prepare_edits_for_update(edits)
 
         # Publish data to ArcGIS
-        edits_updated, edits_created = self.publish_data_to_arcgis(
+        edits_updated, edits_created, edits_deleted = self.publish_data_to_arcgis(
             arcgis_data, gis_service
         )
 
@@ -104,56 +109,40 @@ class MessageService:
 
     def publish_data_to_arcgis(self, edits, gis_service):
         """
-        Publish formatted data to ArcGIS
+        Publish formatted data to ArcGIS and merge results
 
         :param edits: Edits to be made
         :type edits: dict
         :param gis_service: GIS Service
 
-        :return: Edits updated and created
-        :rtype: (dict, dict)
+        :return: Edits updated, created and deleted
+        :rtype: (dict, dict, dict)
         """
 
-        edits_updated = {}
-        edits_created = {}
+        edits_created, edits_deleted, edits_updated = self.publish_edits(
+            edits, gis_service
+        )
 
-        updated_layer_count = {}
-        created_layer_count = {}
+        if (
+            not edits_updated["objects"]
+            and not edits_created["objects"]
+            and not edits_deleted["objects"]
+        ):
+            return None, None, None
 
-        for layer_id in sorted(edits):
-            features_updated, features_created = gis_service.update_feature_layer(
-                layer_id, edits[layer_id]["to_update"], edits[layer_id]["to_create"]
+        if edits_updated["count"]:
+            logging.info(
+                f"Updated existing features in layers: {dict_to_string(edits_updated['count'])}"
             )
 
-            if features_updated and len(features_updated) > 0:
-                updated_layer_count[layer_id] = len(features_updated)
-                edits_updated = {
-                    **edits_updated,
-                    **self.right_join(
-                        edits[layer_id]["to_update"], features_updated, "updated"
-                    ),
-                }  # Join data
-
-            if features_created and len(features_created) > 0:
-                created_layer_count[layer_id] = len(features_created)
-                edits_created = {
-                    **edits_created,
-                    **self.right_join(
-                        edits[layer_id]["to_create"], features_created, "created"
-                    ),
-                }  # Join data
-
-        if not edits_updated and not edits_created:
-            return None, None
-
-        if updated_layer_count:
+        if edits_created["count"]:
             logging.info(
-                f"Updated existing features in layers: {dict_to_string(updated_layer_count)}"
+                f"Created new features in layers: {dict_to_string(edits_created['count'])}"
             )
 
-        if created_layer_count:
+        if edits_deleted["count"]:
             logging.info(
-                f"Created new features in layers: {dict_to_string(created_layer_count)}"
+                f"Deleted existing features in layers: {dict_to_string(edits_deleted['count'])}"
             )
 
         # Append entities to Firestore service
@@ -168,7 +157,68 @@ class MessageService:
                     },
                 )
 
-        return edits_updated, edits_created
+        return (
+            edits_updated["objects"],
+            edits_created["objects"],
+            edits_deleted["objects"],
+        )
+
+    def publish_edits(self, edits, gis_service):
+        """
+        Publish the edits towards ArcGIS
+
+        :param edits: Edits to be made
+        :type edits: dict
+        :param gis_service: GIS Service
+
+        :return: Edits updated, created and deleted
+        :rtype: (dict, dict, dict)
+        """
+
+        edits_updated = {"objects": {}, "count": {}}
+        edits_created = {"objects": {}, "count": {}}
+        edits_deleted = {"objects": {}, "count": {}}
+
+        for layer_id in sorted(edits):
+            (
+                features_updated,
+                features_created,
+                features_deleted,
+            ) = gis_service.update_feature_layer(
+                layer_id,
+                edits[layer_id]["to_update"],
+                edits[layer_id]["to_create"],
+                edits[layer_id]["to_delete"],
+            )
+
+            if features_updated and len(features_updated) > 0:
+                edits_updated["count"][layer_id] = len(features_updated)
+                edits_updated["objects"] = {
+                    **edits_updated["objects"],
+                    **self.right_join(
+                        edits[layer_id]["to_update"], features_updated, "updated"
+                    ),
+                }  # Join data
+
+            if features_created and len(features_created) > 0:
+                edits_created["count"][layer_id] = len(features_created)
+                edits_created["objects"] = {
+                    **edits_created["objects"],
+                    **self.right_join(
+                        edits[layer_id]["to_create"], features_created, "created"
+                    ),
+                }  # Join data
+
+            if features_deleted and len(features_deleted) > 0:
+                edits_deleted["count"][layer_id] = len(features_deleted)
+                edits_deleted["objects"] = {
+                    **edits_deleted["objects"],
+                    **self.right_join(
+                        edits[layer_id]["to_delete"], features_deleted, "deleted"
+                    ),
+                }  # Join data
+
+        return edits_created, edits_deleted, edits_updated
 
     def format_data_into_edits(self, formatted_data):
         """
@@ -224,24 +274,59 @@ class MessageService:
         # Match features on multiple layers
         edits_matched = self.match_existing_features(edits_to_match, layers_to_check)
 
+        # Check for each edit if an update, creation or deletion is needed
         for edit in edits:
-            item_id = edit["item_id"]
+            edit_item_id = edit["item_id"]
+            edit_layer_id = int(edit["layer_id"])
+            edit_object_id = None
 
-            if item_id in edits_matched:
-                edit["object"]["attributes"]["objectid"] = edits_matched[item_id][
-                    "object_id"
-                ]  # Set ObjectID in edit
+            edit_update_type = "to_create"  # Default update type is creation
 
-                layer_id = edits_matched[item_id]["layer_id"]
-                update_type = "to_update"
-            else:
-                layer_id = edit["layer_id"]
-                update_type = "to_create"
+            # Check if existing features are needed for update
+            for item in edits_matched.get(edit_item_id, []):
+                item_layer_id = int(item["layer_id"])
+                item_object_id = int(item["object_id"])
 
-            if layer_id not in layer_edits:
-                layer_edits[layer_id] = {"to_update": [], "to_create": []}
+                # Check if item is already in new layer ID and use it for an update
+                if item_layer_id == edit_layer_id:
+                    edit_object_id = item_object_id
+                    edit["object"]["attributes"][
+                        "objectid"
+                    ] = item_object_id  # Set ObjectID in edit
+                    edit_layer_id = item_layer_id
+                    edit_update_type = "to_update"
+                    continue
 
-            layer_edits[layer_id][update_type].append(edit)
+                # Check if item is not already used to update
+                if edit_object_id != item_object_id:
+                    if (
+                        item_layer_id not in layer_edits
+                    ):  # Check if layer already has edits
+                        layer_edits[item_layer_id] = {
+                            "to_update": [],
+                            "to_create": [],
+                            "to_delete": [],
+                        }
+
+                    # Append feature to deletion list as it is not needed anymore
+                    layer_edits[item_layer_id]["to_delete"].append(
+                        {
+                            "item_id": edit_item_id,
+                            "layer_id": item_layer_id,
+                            "object": item,
+                            "objectId": item_object_id,
+                        }
+                    )
+
+            if edit_layer_id not in layer_edits:  # Check if layer already has edits
+                layer_edits[edit_layer_id] = {
+                    "to_update": [],
+                    "to_create": [],
+                    "to_delete": [],
+                }
+
+            # Append edit to layer with correct update type: 'to_update' or 'to_create'
+            layer_edits[edit_layer_id][edit_update_type].append(edit)
 
         return layer_edits
 
@@ -264,10 +349,15 @@ class MessageService:
             object_ids = self.item_processor.get_existing_object_id(layer_id, edit_ids)
 
             for item_id in object_ids:
-                edits_matched[item_id] = {
-                    "layer_id": layer_id,
-                    "object_id": object_ids[item_id],
-                }
+                if item_id not in edits_matched:
+                    edits_matched[item_id] = []
+
+                edits_matched[item_id].append(
+                    {
+                        "layer_id": layer_id,
+                        "object_id": object_ids[item_id],
+                    }
+                )
                 edit_ids.remove(item_id)
 
             if not edit_ids:
@@ -314,7 +404,7 @@ class MessageService:
 
             for layer_id in edits_to_update:
                 gis_service.update_feature_layer(
-                    layer_id, edits_to_update[layer_id], []
+                    layer_id, edits_to_update[layer_id], [], []
                 )
 
     @staticmethod
@@ -358,7 +448,7 @@ class MessageService:
         for index, item in enumerate(list_2):
             list_to_dict[list_1[index]["item_id"]] = {
                 "data": list_1[index]["object"],
-                "id": item["objectId"],
+                "id": item["objectId"] if isinstance(item, dict) else item,
                 "layer_id": list_1[index]["layer_id"],
                 "type": list_type,
             }

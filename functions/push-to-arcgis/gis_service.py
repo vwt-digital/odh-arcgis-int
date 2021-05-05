@@ -9,7 +9,7 @@ from utils import get_secret
 
 
 class GISService:
-    def __init__(self, arcgis_auth, arcgis_url, arcgis_name):
+    def __init__(self, arcgis_auth, arcgis_url, arcgis_name, disable_updated_at):
         """
         Initiates the GISService
 
@@ -18,11 +18,14 @@ class GISService:
         :type arcgis_url: str
         :param arcgis_name: The ArcGIS feature name
         :type arcgis_name: str
+        :param disable_updated_at: Disabled the addition of 'updated_at' field
+        :type disable_updated_at: boolean
         """
 
         self.arcgis_auth = arcgis_auth
         self.arcgis_url = arcgis_url
         self.arcgis_name = arcgis_name
+        self.disable_updated_at = disable_updated_at
 
         self.requests_session = get_requests_session(
             retries=3, backoff=15, status_forcelist=(404, 500, 502, 503, 504)
@@ -131,7 +134,7 @@ class GISService:
 
             return feature_ids
 
-    def update_feature_layer(self, layer_id, to_update, to_create):
+    def update_feature_layer(self, layer_id, to_update, to_create, to_delete):
         """
         Update feature layer
 
@@ -141,32 +144,17 @@ class GISService:
         :type to_update: list
         :param to_create: Features to create
         :type to_create: list
+        :param to_delete: Features to delete
+        :type to_delete: list
 
         :return: Feature ID
         :rtype: int
         """
 
-        # Create list with entities to update
-        data_adds = [obj["object"] for obj in to_create]
-        data_updates = [obj["object"] for obj in to_update]
+        if not to_update and to_create and to_delete:
+            return None, None, None
 
-        # Set update_at field for each entity
-        batch_timestamp = (
-            datetime.utcnow().isoformat(timespec="seconds") + "Z"
-        )  # Set batch timestamp
-
-        for obj in data_adds:
-            obj["attributes"]["updated_at"] = batch_timestamp
-
-        for obj in data_updates:
-            obj["attributes"]["updated_at"] = batch_timestamp
-
-        data = {
-            "adds": json.dumps(data_adds),
-            "updates": json.dumps(data_updates),
-            "f": "json",
-            "token": self.token,
-        }
+        data = self.create_update_data_object(to_create, to_delete, to_update)
 
         try:
             r = self.requests_session.post(
@@ -179,18 +167,73 @@ class GISService:
                     f"Error when updating GIS server layer {layer_id} - server responded with status "
                     f"{response['error']['code']}: {response['error']['message']}"
                 )
-                return None, None
+                return None, None, None
 
-            return response["updateResults"], response["addResults"]
+            return (
+                response["updateResults"],
+                response["addResults"],
+                response["deleteResults"],
+            )
         except requests.exceptions.ConnectionError as e:
             logging.error(
                 f"Connection error when updating GIS server layer {layer_id}: {str(e)}"
             )
-            return None, None
+            return None, None, None
         except json.decoder.JSONDecodeError as e:
             logging.error(f"Error when updating GIS server layer {layer_id}: {str(e)}")
             logging.info(r.content)
-            return None, None
+            return None, None, None
+
+    def create_update_data_object(self, to_create, to_delete, to_update):
+        """
+        Create a data object used for updating the Feature layer
+
+        :param to_update: Features to update
+        :type to_update: list
+        :param to_create: Features to create
+        :type to_create: list
+        :param to_delete: Features to delete
+        :type to_delete: list
+
+        :return: Request data object
+        :rtype: dict
+        """
+
+        # Set data object
+        data = {
+            "f": "json",
+            "token": self.token,
+        }
+
+        # Set batch timestamp
+        batch_timestamp = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+
+        # Append create features if existing
+        if to_create:
+            data_adds = [obj["object"] for obj in to_create]
+
+            if not self.disable_updated_at:
+                for obj in data_adds:
+                    obj["attributes"]["updated_at"] = batch_timestamp
+
+            data["adds"] = json.dumps(data_adds)
+
+        # Append update features if existing
+        if to_update:
+            data_updates = [obj["object"] for obj in to_update]
+
+            if not self.disable_updated_at:
+                for obj in data_updates:
+                    obj["attributes"]["updated_at"] = batch_timestamp
+
+            data["updates"] = json.dumps(data_updates)
+
+        # Append delete features if existing
+        if to_delete:
+            data_deletes = [int(obj["objectId"]) for obj in to_delete]
+            data["deletes"] = json.dumps(data_deletes)
+
+        return data
 
     def upload_attachment_to_feature_layer(
         self, layer_id, feature_id, file_type, file_name, file_content
