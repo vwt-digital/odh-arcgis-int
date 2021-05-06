@@ -9,6 +9,10 @@ arcgis:
   feature_service:
     url: "https://example.com/"
     id: "example"
+    layers:
+      - 0
+      - 1
+      - 2
 data_source: "nested/data"
 debug_logging: true
 existence_check: "firestore"
@@ -30,3 +34,4 @@ mapping:
       field: "properties/user/photo"
       required: true
   id_field: "id"
+  layer_field: "layer_id"

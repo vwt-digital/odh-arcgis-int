@@ -12,6 +12,7 @@ arcgis:
   feature_service:
     url: "A string containing the ArcGIS feature layer URL"
     id: "A string containing the ArcGIS feature ID"
+    layers: "A list containing all feature service layers. When 'layer_field' is defined, all layers have to be specified here."
 data_source: "The (nested) data field within the incoming message (format: `field/sub-field/sub-sub-field`)"
 debug_logging: "Enable debug logging"
 existence_check: "Existence check type for incoming features" # See 'Existence check'
@@ -21,8 +22,10 @@ mapping:
   coordinates:
     longitude: "The (nested) data field within the incoming message containing the longitude coordinate (format: 'field/sub-field/sub-sub-field')"
     latitude: "The (nested) data field within the incoming message containing the latitude coordinate (format: 'field/sub-field/sub-sub-field')"
-  fields: "The field mapping for the transformation of an incoming message towards an ArcGIS object" # See 'field mapping'
+    conversion: "A conversion type for coordinate conversion" # See 'Coordinate conversion'
+  fields: "The field mapping for the transformation of an incoming message towards an ArcGIS object" # See 'Field mapping'
   id_field: "The (nested) identifier field for each object (format: 'field/sub-field/sub-sub-field')"
+  layer_field: "The (nested) layer identifier field for each object (format: 'field/sub-field/sub-sub-field'). When empty, default layer is 0"
 ~~~
 
 ### ArcGIS authentication
@@ -46,6 +49,11 @@ not exist yet, a new feature will be added. The check can be one of the followin
   exists by querying the ArcGIS API (this is not recommended for frequent updates).
 - `firestore`: This enables the existence check within a Firestore instance. For each new object it will check if the
   feature exists by searching a Firestore instance (recommended for frequent updates).
+
+### Coordinate conversion
+It is possible to enable coordinate conversion within the function. When the incoming message contains a longitude and
+latitude, it can be converted towards the following formats:
+- `wgs84-web_mercator`: Web Mercator projection (see [documentation](https://proj.org/operations/projections/webmerc.html))
 
 ### Field mapping
 
