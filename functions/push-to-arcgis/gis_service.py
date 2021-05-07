@@ -73,11 +73,14 @@ class GISService:
         except (
             requests.exceptions.ConnectionError,
             requests.exceptions.HTTPError,
-            json.decoder.JSONDecodeError,
         ) as e:
             logging.error(
                 f"An error occurred when retrieving ArcGIS token: {str(e)} ({gis_r.content})"
             )
+            return None
+        except json.decoder.JSONDecodeError:
+            logging.error("The ArcGIS token request response could not be parsed")
+            logging.debug(gis_r.content)
             return None
 
     def get_objectids_in_feature_layer(self, layer_id, id_field, id_values):
