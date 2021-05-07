@@ -2,9 +2,11 @@ import json
 import logging
 import os
 from datetime import datetime
+from json.decoder import JSONDecodeError
 
-import requests
+from requests.exceptions import ConnectionError, HTTPError
 from requests_retry_session import get_requests_session
+from retry import retry
 from utils import get_secret
 
 
@@ -32,6 +34,13 @@ class GISService:
         )
         self.token = self._get_feature_service_token()
 
+    @retry(
+        (ConnectionError, HTTPError, JSONDecodeError),
+        tries=3,
+        delay=5,
+        logger=None,
+        backoff=2,
+    )
     def _get_feature_service_token(self):
         """
         Request a new feature service token
@@ -71,14 +80,14 @@ class GISService:
             )
             return None
         except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.HTTPError,
+            ConnectionError,
+            HTTPError,
         ) as e:
             logging.error(
                 f"An error occurred when retrieving ArcGIS token: {str(e)} ({gis_r.content})"
             )
             return None
-        except json.decoder.JSONDecodeError:
+        except JSONDecodeError:
             logging.error("The ArcGIS token request response could not be parsed")
             logging.debug(gis_r.content)
             return None
@@ -113,7 +122,7 @@ class GISService:
 
         try:
             response = r.json()
-        except json.decoder.JSONDecodeError as e:
+        except JSONDecodeError as e:
             logging.error(
                 f"Error when searching for features in GIS server layer {layer_id}: {str(e)}"
             )
@@ -177,12 +186,12 @@ class GISService:
                 response["addResults"],
                 response["deleteResults"],
             )
-        except requests.exceptions.ConnectionError as e:
+        except ConnectionError as e:
             logging.error(
                 f"Connection error when updating GIS server layer {layer_id}: {str(e)}"
             )
             return None, None, None
-        except json.decoder.JSONDecodeError as e:
+        except JSONDecodeError as e:
             logging.error(f"Error when updating GIS server layer {layer_id}: {str(e)}")
             logging.info(r.content)
             return None, None, None
@@ -285,12 +294,12 @@ class GISService:
             )
 
             return int(attachment_id)
-        except requests.exceptions.ConnectionError as e:
+        except ConnectionError as e:
             logging.error(
                 f"Connection error when uploading attachment to GIS server layer {layer_id}: {str(e)}"
             )
             return None
-        except json.decoder.JSONDecodeError as e:
+        except JSONDecodeError as e:
             logging.error(
                 f"Error when uploading attachment to GIS server layer {layer_id}: {str(e)}"
             )
