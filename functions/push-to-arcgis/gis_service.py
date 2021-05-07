@@ -2,9 +2,11 @@ import json
 import logging
 import os
 from datetime import datetime
+from json.decoder import JSONDecodeError
 
-import requests
+from requests.exceptions import ConnectionError, HTTPError
 from requests_retry_session import get_requests_session
+from retry import retry
 from utils import get_secret
 
 
@@ -40,45 +42,52 @@ class GISService:
         :rtype: str
         """
 
-        gis_r = None
-
         try:
-            request_data = {
-                "f": "json",
-                "username": self.arcgis_auth.username,
-                "password": get_secret(
-                    os.environ["PROJECT_ID"], self.arcgis_auth.secret
-                ),
-                "request": self.arcgis_auth.request,
-                "referer": self.arcgis_auth.referer,
-            }
-
-            gis_r = self.requests_session.post(self.arcgis_auth.url, request_data)
-            gis_r.raise_for_status()
-
-            r_json = gis_r.json()
-
-            if "token" in r_json:
-                return r_json["token"]
-
-            logging.error(
-                f"An error occurred when retrieving ArcGIS token: {r_json.get('error', gis_r.content)}"
-            )
-            return None
+            return self.get_arcgis_token()
         except KeyError as e:
             logging.error(
                 f"Function is missing authentication configuration for retrieving ArcGIS token: {str(e)}"
             )
             return None
-        except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.HTTPError,
-            json.decoder.JSONDecodeError,
-        ) as e:
-            logging.error(
-                f"An error occurred when retrieving ArcGIS token: {str(e)} ({gis_r.content})"
-            )
+        except (ConnectionError, HTTPError, JSONDecodeError) as e:
+            logging.error(f"An error occurred when retrieving ArcGIS token: {str(e)}")
             return None
+
+    @retry(
+        (ConnectionError, HTTPError, JSONDecodeError),
+        tries=3,
+        delay=5,
+        logger=None,
+        backoff=2,
+    )
+    def get_arcgis_token(self):
+        """
+        Get token from ArcGIS
+
+        :return: Token
+        :rtype: str
+        """
+
+        request_data = {
+            "f": "json",
+            "username": self.arcgis_auth.username,
+            "password": get_secret(os.environ["PROJECT_ID"], self.arcgis_auth.secret),
+            "request": self.arcgis_auth.request,
+            "referer": self.arcgis_auth.referer,
+        }
+
+        gis_r = self.requests_session.post(self.arcgis_auth.url, request_data)
+        gis_r.raise_for_status()
+
+        r_json = gis_r.json()
+
+        if "token" in r_json:
+            return r_json["token"]
+
+        logging.error(
+            f"An error occurred when retrieving ArcGIS token: {r_json.get('error', gis_r.content)}"
+        )
+        return None
 
     def get_objectids_in_feature_layer(self, layer_id, id_field, id_values):
         """
@@ -110,7 +119,7 @@ class GISService:
 
         try:
             response = r.json()
-        except json.decoder.JSONDecodeError as e:
+        except JSONDecodeError as e:
             logging.error(
                 f"Error when searching for features in GIS server layer {layer_id}: {str(e)}"
             )
@@ -174,12 +183,12 @@ class GISService:
                 response["addResults"],
                 response["deleteResults"],
             )
-        except requests.exceptions.ConnectionError as e:
+        except ConnectionError as e:
             logging.error(
                 f"Connection error when updating GIS server layer {layer_id}: {str(e)}"
             )
             return None, None, None
-        except json.decoder.JSONDecodeError as e:
+        except JSONDecodeError as e:
             logging.error(f"Error when updating GIS server layer {layer_id}: {str(e)}")
             logging.info(r.content)
             return None, None, None
@@ -282,12 +291,12 @@ class GISService:
             )
 
             return int(attachment_id)
-        except requests.exceptions.ConnectionError as e:
+        except ConnectionError as e:
             logging.error(
                 f"Connection error when uploading attachment to GIS server layer {layer_id}: {str(e)}"
             )
             return None
-        except json.decoder.JSONDecodeError as e:
+        except JSONDecodeError as e:
             logging.error(
                 f"Error when uploading attachment to GIS server layer {layer_id}: {str(e)}"
             )
