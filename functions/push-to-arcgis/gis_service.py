@@ -34,13 +34,6 @@ class GISService:
         )
         self.token = self._get_feature_service_token()
 
-    @retry(
-        (ConnectionError, HTTPError, JSONDecodeError),
-        tries=3,
-        delay=5,
-        logger=None,
-        backoff=2,
-    )
     def _get_feature_service_token(self):
         """
         Request a new feature service token
@@ -49,48 +42,52 @@ class GISService:
         :rtype: str
         """
 
-        gis_r = None
-
         try:
-            request_data = {
-                "f": "json",
-                "username": self.arcgis_auth.username,
-                "password": get_secret(
-                    os.environ["PROJECT_ID"], self.arcgis_auth.secret
-                ),
-                "request": self.arcgis_auth.request,
-                "referer": self.arcgis_auth.referer,
-            }
-
-            gis_r = self.requests_session.post(self.arcgis_auth.url, request_data)
-            gis_r.raise_for_status()
-
-            r_json = gis_r.json()
-
-            if "token" in r_json:
-                return r_json["token"]
-
-            logging.error(
-                f"An error occurred when retrieving ArcGIS token: {r_json.get('error', gis_r.content)}"
-            )
-            return None
+            return self.get_arcgis_token()
         except KeyError as e:
             logging.error(
                 f"Function is missing authentication configuration for retrieving ArcGIS token: {str(e)}"
             )
             return None
-        except (
-            ConnectionError,
-            HTTPError,
-        ) as e:
-            logging.error(
-                f"An error occurred when retrieving ArcGIS token: {str(e)} ({gis_r.content})"
-            )
+        except (ConnectionError, HTTPError, JSONDecodeError) as e:
+            logging.error(f"An error occurred when retrieving ArcGIS token: {str(e)}")
             return None
-        except JSONDecodeError:
-            logging.error("The ArcGIS token request response could not be parsed")
-            logging.debug(gis_r.content)
-            return None
+
+    @retry(
+        (ConnectionError, HTTPError, JSONDecodeError),
+        tries=3,
+        delay=5,
+        logger=None,
+        backoff=2,
+    )
+    def get_arcgis_token(self):
+        """
+        Get token from ArcGIS
+
+        :return: Token
+        :rtype: str
+        """
+
+        request_data = {
+            "f": "json",
+            "username": self.arcgis_auth.username,
+            "password": get_secret(os.environ["PROJECT_ID"], self.arcgis_auth.secret),
+            "request": self.arcgis_auth.request,
+            "referer": self.arcgis_auth.referer,
+        }
+
+        gis_r = self.requests_session.post(self.arcgis_auth.url, request_data)
+        gis_r.raise_for_status()
+
+        r_json = gis_r.json()
+
+        if "token" in r_json:
+            return r_json["token"]
+
+        logging.error(
+            f"An error occurred when retrieving ArcGIS token: {r_json.get('error', gis_r.content)}"
+        )
+        return None
 
     def get_objectids_in_feature_layer(self, layer_id, id_field, id_values):
         """
