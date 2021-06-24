@@ -92,6 +92,13 @@ class GISService:
         )
         return None
 
+    @retry(
+        (ConnectionError, HTTPError, JSONDecodeError),
+        tries=3,
+        delay=5,
+        logger=None,
+        backoff=2,
+    )
     def get_objectids_in_feature_layer(self, layer_id, id_field, id_values):
         """
         Check if features already exist within ArcGIS Feature Layer
@@ -146,6 +153,13 @@ class GISService:
 
             return feature_ids
 
+    @retry(
+        (ConnectionError, HTTPError, JSONDecodeError),
+        tries=3,
+        delay=5,
+        logger=None,
+        backoff=2,
+    )
     def update_feature_layer(self, layer_id, to_update, to_create, to_delete):
         """
         Update feature layer
@@ -196,6 +210,13 @@ class GISService:
             logging.info(r.content)
             return None, None, None
 
+    @retry(
+        (ConnectionError, HTTPError, JSONDecodeError),
+        tries=3,
+        delay=5,
+        logger=None,
+        backoff=2,
+    )
     def create_update_data_object(self, to_create, to_delete, to_update):
         """
         Create a data object used for updating the Feature layer
@@ -247,6 +268,13 @@ class GISService:
 
         return data
 
+    @retry(
+        (ConnectionError, HTTPError, JSONDecodeError),
+        tries=3,
+        delay=5,
+        logger=None,
+        backoff=2,
+    )
     def upload_attachment_to_feature_layer(
         self, layer_id, feature_id, file_type, file_name, file_content
     ):
