@@ -23,7 +23,6 @@ class MockResponse:
     def mock_response(
         self, status=200, content="", json_data=None, raise_for_status=None
     ):
-
         self.raise_for_status_status = raise_for_status
         self.status_code = status
         self.text = content
@@ -51,7 +50,7 @@ class TestGISService(unittest.TestCase):
             "expires": 1582930261424,
             "ssl": True,
         }
-        self.mock_res.mock_response(200, json_data=res)
+        self.mock_res.mock_response(json_data=res)
 
         mock_post.return_value = self.mock_res
 
@@ -79,7 +78,7 @@ class TestGISService(unittest.TestCase):
             "deleteResults": [],
         }
 
-        self.mock_res.mock_response(200, json_data=res)
+        self.mock_res.mock_response(json_data=res)
 
         mock_post.return_value = self.mock_res
 
@@ -96,10 +95,15 @@ class TestGISService(unittest.TestCase):
         self.assertEqual([], deleteResults)
 
     @mock.patch("requests.Session.post")
-    def test_create_feature_fail(self, mock_post):
-        res = {"error": {"code": "testcode", "message": "unittest description"}}
+    def test_create_update_feature_fail(self, mock_post):
+        res = {
+            "error": {
+                "code": "unittest-code",
+                "message": "Unittest for update/create feature fail",
+            }
+        }
 
-        self.mock_res.mock_response(200, json_data=res)
+        self.mock_res.mock_response(json_data=res)
 
         mock_post.return_value = self.mock_res
 
@@ -114,6 +118,72 @@ class TestGISService(unittest.TestCase):
         self.assertEqual(None, updateResults)
         self.assertEqual(None, addResults)
         self.assertEqual(None, deleteResults)
+
+    @mock.patch("requests.Session.post")
+    def test_update_feature_success(self, mock_post):
+        res = {
+            "id": 0,
+            "addResults": [],
+            "updateResults": [
+                {
+                    "objectId": 1,
+                    "globalId": 1,
+                    "success": True,
+                }
+            ],
+            "deleteResults": [],
+        }
+
+        self.mock_res.mock_response(json_data=res)
+
+        mock_post.return_value = self.mock_res
+
+        (
+            updateResults,
+            addResults,
+            deleteResults,
+        ) = self.gis_service.update_feature_layer(
+            layer_id=1, to_create=[], to_update=[], to_delete=[]
+        )
+
+        self.assertEqual([], addResults)
+        self.assertEqual(res["updateResults"], updateResults)
+        self.assertEqual([], deleteResults)
+
+    @mock.patch("requests.Session.post")
+    def test_upload_attachment_success(self, mock_post):
+        res = {
+            "addAttachmentResult": {"objectId": 58, "globalId": None, "success": True}
+        }
+
+        self.mock_res.mock_response(json_data=res)
+
+        mock_post.return_value = self.mock_res
+
+        attachment = self.gis_service.upload_attachment_to_feature_layer(
+            1, 1, "text", "testfile", "this is some text to test the function"
+        )
+
+        self.assertEqual(res["addAttachmentResult"]["objectId"], attachment)
+
+    @mock.patch("requests.Session.post")
+    def test_upload_attachment_fail(self, mock_post):
+        res = {
+            "error": {
+                "code": "unittest-code",
+                "message": "Unittest for upload attachment fail",
+            }
+        }
+
+        self.mock_res.mock_response(json_data=res)
+
+        mock_post.return_value = self.mock_res
+
+        attachment = self.gis_service.upload_attachment_to_feature_layer(
+            1, 1, "text", "testfile", "this is some text to test the function"
+        )
+
+        self.assertEqual(None, attachment)
 
 
 if __name__ == "__main__":
