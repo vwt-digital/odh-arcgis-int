@@ -275,6 +275,83 @@ class GISService:
         logger=None,
         backoff=2,
     )
+    def delete_attachments_from_feature_layer(self, layer_id, feature_id, attachment_ids):
+        data = {"f": "json", "token": self.token, "attachmentIds": attachment_ids}
+
+        try:
+            r = self.requests_session.post(
+                f"{self.arcgis_url}/{layer_id}/{feature_id}/deleteAttachments",
+                data=data
+            )
+
+            response = r.json()
+            if response.get("error", False):
+                logging.error(
+                    f"Error when deleting attachment from GIS server layer {layer_id}  - "
+                    f"server responded with status {response['error']['code']}: "
+                    f"{response['error']['message']}"
+                )
+                return []
+
+            return response["deleteAttachmentResults"]
+        except ConnectionError as e:
+            logging.error(
+                f"Connection error when deleting attachment from GIS server layer {layer_id}: {str(e)}"
+            )
+            return []
+        except JSONDecodeError as e:
+            logging.error(
+                f"Error when deleting attachment from GIS server layer {layer_id}: {str(e)}"
+            )
+            logging.info(r.content)
+            return []
+        pass
+
+    @retry(
+        (ConnectionError, HTTPError, JSONDecodeError),
+        tries=3,
+        delay=5,
+        logger=None,
+        backoff=2,
+    )
+    def get_attachments_from_feature_layer(self, layer_id, feature_id):
+        data = {"f": "json", "token": self.token}
+
+        try:
+            r = self.requests_session.post(
+                f"{self.arcgis_url}/{layer_id}/{feature_id}/attachments",
+                data=data
+            )
+
+            response = r.json()
+            if response.get("error", False):
+                logging.error(
+                    f"Error when getting attachment from GIS server layer {layer_id}  - "
+                    f"server responded with status {response['error']['code']}: "
+                    f"{response['error']['message']}"
+                )
+                return []
+
+            return response["attachmentInfos"]
+        except ConnectionError as e:
+            logging.error(
+                f"Connection error when getting attachment from GIS server layer {layer_id}: {str(e)}"
+            )
+            return []
+        except JSONDecodeError as e:
+            logging.error(
+                f"Error when getting attachment from GIS server layer {layer_id}: {str(e)}"
+            )
+            logging.info(r.content)
+            return []
+
+    @retry(
+        (ConnectionError, HTTPError, JSONDecodeError),
+        tries=3,
+        delay=5,
+        logger=None,
+        backoff=2,
+    )
     def upload_attachment_to_feature_layer(
         self, layer_id, feature_id, file_type, file_name, file_content
     ):

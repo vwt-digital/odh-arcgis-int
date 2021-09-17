@@ -528,6 +528,13 @@ class MessageService:
                 if not file_content:
                     continue
 
+                # Check if attachments with filename already exist, if so, delete all.
+                attachments = self.gis_service.get_attachments_from_feature_layer(layer_id, feature_id)
+                attachments = [int(att["id"]) for att in attachments if att["name"] == file_name]
+                if attachments:
+                    logging.debug(f"Found {len(attachments)} duplicate attachments ({file_name}), let's torch them.")
+                    self.gis_service.delete_attachments_from_feature_layer(layer_id, feature_id, attachments)
+
                 # Upload attachment to feature object
                 attachment_id = self.gis_service.upload_attachment_to_feature_layer(
                     layer_id, feature_id, file_type, file_name, file_content
