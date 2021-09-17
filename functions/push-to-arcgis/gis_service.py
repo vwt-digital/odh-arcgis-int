@@ -276,7 +276,9 @@ class GISService:
         backoff=2,
     )
     def delete_attachments_from_feature_layer(self, layer_id, feature_id, attachment_ids):
-        data = {"f": "json", "token": self.token, "attachmentIds": attachment_ids}
+        ids_as_string = map(str, attachment_ids)
+        ids_as_string = ",".join(ids_as_string)
+        data = {"f": "json", "token": self.token, "attachmentIds": ids_as_string}
 
         try:
             r = self.requests_session.post(
