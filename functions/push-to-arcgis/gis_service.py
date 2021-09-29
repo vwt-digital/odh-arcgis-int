@@ -7,10 +7,16 @@ from json.decoder import JSONDecodeError
 from requests.exceptions import ConnectionError, HTTPError
 from requests_retry_session import get_requests_session
 from retry import retry
+from typing import Optional
 from utils import get_secret
 
 
 class GISService:
+
+    _REQUEST_SESSION = get_requests_session(
+        retries=3, backoff=15, status_forcelist=(404, 500, 502, 503, 504)
+    )
+
     def __init__(self, arcgis_auth, arcgis_url, arcgis_name, disable_updated_at):
         """
         Initiates the GISService
@@ -24,143 +30,30 @@ class GISService:
         :type disable_updated_at: boolean
         """
 
-        self.arcgis_auth = arcgis_auth
-        self.arcgis_url = arcgis_url
-        self.arcgis_name = arcgis_name
-        self.disable_updated_at = disable_updated_at
+        self._arcgis_auth = arcgis_auth
+        self._arcgis_url = arcgis_url
+        self._arcgis_name = arcgis_name
+        self._disable_updated_at = disable_updated_at
 
-        self.requests_session = get_requests_session(
-            retries=3, backoff=15, status_forcelist=(404, 500, 502, 503, 504)
+        success, response = self._request_token(
+            arcgis_auth.username,
+            arcgis_auth.secret,
+            arcgis_url,
+            arcgis_auth.referer,
+            arcgis_auth.request
         )
-        self.token = self._get_feature_service_token()
-
-    def _get_feature_service_token(self):
-        """
-        Request a new feature service token
-
-        :return: Token
-        :rtype: str
-        """
-
-        try:
-            return self.get_arcgis_token()
-        except KeyError as e:
-            logging.error(
-                f"Function is missing authentication configuration for retrieving ArcGIS token: {str(e)}"
-            )
-            return None
-        except (ConnectionError, HTTPError) as e:
-            logging.error(f"An error occurred when retrieving ArcGIS token: {str(e)}")
-            return None
-        except JSONDecodeError as e:
-            logging.debug(f"An error occurred when retrieving ArcGIS token: {str(e)}")
-            return None
-
-    @retry(
-        (ConnectionError, HTTPError, JSONDecodeError),
-        tries=3,
-        delay=5,
-        logger=None,
-        backoff=2,
-    )
-    def get_arcgis_token(self):
-        """
-        Get token from ArcGIS
-
-        :return: Token
-        :rtype: str
-        """
-
-        request_data = {
-            "f": "json",
-            "username": self.arcgis_auth.username,
-            "password": get_secret(os.environ["PROJECT_ID"], self.arcgis_auth.secret),
-            "request": self.arcgis_auth.request,
-            "referer": self.arcgis_auth.referer,
-        }
-
-        gis_r = self.requests_session.post(self.arcgis_auth.url, request_data)
-        gis_r.raise_for_status()
-
-        r_json = gis_r.json()
-
-        if "token" in r_json:
-            return r_json["token"]
-
-        logging.error(
-            f"An error occurred when retrieving ArcGIS token: {r_json.get('error', gis_r.content)}"
-        )
-        return None
-
-    @retry(
-        (ConnectionError, HTTPError, JSONDecodeError),
-        tries=3,
-        delay=5,
-        logger=None,
-        backoff=2,
-    )
-    def get_objectids_in_feature_layer(self, layer_id, id_field, id_values):
-        """
-        Check if features already exist within ArcGIS Feature Layer
-
-        :param layer_id: Layer ID
-        :type layer_id: int
-        :param id_field: ID field
-        :type id_field: str
-        :param id_values: ID value
-        :type id_values: list
-
-        :return: Feature's object IDs
-        :rtype: dict
-        """
-
-        params = {
-            "where": "{} in ({})".format(
-                id_field, ",".join(f"'{key}'" for key in id_values)
-            ),
-            "outFields": f"{id_field},objectid",
-            "f": "json",
-            "token": self.token,
-        }
-
-        r = self.requests_session.get(
-            f"{self.arcgis_url}/{layer_id}/query", params=params
-        )
-
-        try:
-            response = r.json()
-        except JSONDecodeError as e:
-            logging.error(
-                f"Error when searching for features in GIS server layer {layer_id}: {str(e)}"
-            )
-            logging.info(r.content)
-            return {}
+        if success:
+            self.token = response
         else:
-            if "error" in response:
-                logging.error(
-                    f"Searching for existing features in map layer '{layer_id}' resulted in an error: "
-                    + json.dumps(response["error"])
-                )
-                return {}
+            logging.error(f"Something went wrong when requesting GIS token: {response}")
 
-            feature_ids = {}
-
-            for feature in response.get("features", []):
-                feature_id = feature["attributes"][id_field]
-                object_id = int(feature["attributes"]["objectid"])
-
-                feature_ids[feature_id] = object_id
-
-            return feature_ids
-
-    @retry(
-        (ConnectionError, HTTPError, JSONDecodeError),
-        tries=3,
-        delay=5,
-        logger=None,
-        backoff=2,
-    )
-    def update_feature_layer(self, layer_id, to_update, to_create, to_delete):
+    def update_feature_layer(
+            self,
+            layer_id: int,
+            to_update: list,
+            to_create: list,
+            to_delete: list
+    ) -> (Optional[list], Optional[list], Optional[list]):
         """
         Update feature layer
 
@@ -173,42 +66,36 @@ class GISService:
         :param to_delete: Features to delete
         :type to_delete: list
 
-        :return: Feature ID
-        :rtype: int
+        :return: (
+            List of update results.,
+            List of add results.,
+            List of delete results.
+        )
+        :rtype: (list | None, list | None, list | None)
         """
 
-        if not to_update and to_create and to_delete:
+        if not to_update and not to_create and not to_delete:
             return None, None, None
 
-        data = self.create_update_data_object(to_create, to_delete, to_update)
+        data = self._create_update_data_object(to_create, to_delete, to_update)
+        success, response = self._make_arcgis_request(
+            action="applyEdits",
+            feature_layer=layer_id,
+            data=data
+        )
 
-        try:
-            r = self.requests_session.post(
-                f"{self.arcgis_url}/{layer_id}/applyEdits", data=data
-            )
-
-            response = r.json()
-            if response.get("error", False):
-                logging.error(
-                    f"Error when updating GIS server layer {layer_id} - server responded with status "
-                    f"{response['error']['code']}: {response['error']['message']}"
-                )
-                return None, None, None
-
+        if success:
             return (
                 response["updateResults"],
                 response["addResults"],
                 response["deleteResults"],
             )
-        except ConnectionError as e:
+        else:
             logging.error(
-                f"Connection error when updating GIS server layer {layer_id}: {str(e)}"
+                f"Something went wrong while sending updates to GIS: {response}"
             )
-            return None, None, None
-        except JSONDecodeError as e:
-            logging.error(f"Error when updating GIS server layer {layer_id}: {str(e)}")
-            logging.info(r.content)
-            return None, None, None
+
+        return None, None, None
 
     @retry(
         (ConnectionError, HTTPError, JSONDecodeError),
@@ -217,7 +104,7 @@ class GISService:
         logger=None,
         backoff=2,
     )
-    def create_update_data_object(self, to_create, to_delete, to_update):
+    def _create_update_data_object(self, to_create: list, to_delete: list, to_update: list):
         """
         Create a data object used for updating the Feature layer
 
@@ -245,7 +132,7 @@ class GISService:
         if to_create:
             data_adds = [obj["object"] for obj in to_create]
 
-            if not self.disable_updated_at:
+            if not self._disable_updated_at:
                 for obj in data_adds:
                     obj["attributes"]["updated_at"] = batch_timestamp
 
@@ -255,7 +142,7 @@ class GISService:
         if to_update:
             data_updates = [obj["object"] for obj in to_update]
 
-            if not self.disable_updated_at:
+            if not self._disable_updated_at:
                 for obj in data_updates:
                     obj["attributes"]["updated_at"] = batch_timestamp
 
@@ -268,93 +155,49 @@ class GISService:
 
         return data
 
-    @retry(
-        (ConnectionError, HTTPError, JSONDecodeError),
-        tries=3,
-        delay=5,
-        logger=None,
-        backoff=2,
-    )
-    def delete_attachments_from_feature_layer(self, layer_id, feature_id, attachment_ids):
-        data = {"f": "json", "token": self.token, "attachmentIds": attachment_ids}
+    def delete_attachments(self, layer_id: int, feature_id: int, attachment_ids: list) -> Optional[list]:
+        success, response = self._make_arcgis_request(
+            action="deleteAttachments",
+            feature_layer=layer_id,
+            feature_id=feature_id,
+            data={
+                "attachmentIds": ",".join(attachment_ids)
+            }
+        )
 
-        try:
-            r = self.requests_session.post(
-                f"{self.arcgis_url}/{layer_id}/{feature_id}/deleteAttachments",
-                data=data
-            )
-
-            response = r.json()
-            if response.get("error", False):
-                logging.error(
-                    f"Error when deleting attachment from GIS server layer {layer_id}  - "
-                    f"server responded with status {response['error']['code']}: "
-                    f"{response['error']['message']}"
-                )
-                return []
-
+        if success:
             return response["deleteAttachmentResults"]
-        except ConnectionError as e:
+        else:
             logging.error(
-                f"Connection error when deleting attachment from GIS server layer {layer_id}: {str(e)}"
-            )
-            return []
-        except JSONDecodeError as e:
-            logging.error(
-                f"Error when deleting attachment from GIS server layer {layer_id}: {str(e)}"
-            )
-            logging.info(r.content)
-            return []
-        pass
-
-    @retry(
-        (ConnectionError, HTTPError, JSONDecodeError),
-        tries=3,
-        delay=5,
-        logger=None,
-        backoff=2,
-    )
-    def get_attachments_from_feature_layer(self, layer_id, feature_id):
-        data = {"f": "json", "token": self.token}
-
-        try:
-            r = self.requests_session.post(
-                f"{self.arcgis_url}/{layer_id}/{feature_id}/attachments",
-                data=data
+                f"Something went wrong while deleting attachments from GIS: {response}"
             )
 
-            response = r.json()
-            if response.get("error", False):
-                logging.error(
-                    f"Error when getting attachment from GIS server layer {layer_id}  - "
-                    f"server responded with status {response['error']['code']}: "
-                    f"{response['error']['message']}"
-                )
-                return []
+        return None
 
+    def get_attachments(self, layer_id: int, feature_id: int) -> Optional[list]:
+        success, response = self._make_arcgis_request(
+            action="attachments",
+            feature_layer=layer_id,
+            feature_id=feature_id
+        )
+
+        if success:
             return response["attachmentInfos"]
-        except ConnectionError as e:
+        else:
             logging.error(
-                f"Connection error when getting attachment from GIS server layer {layer_id}: {str(e)}"
+                f"Something went wrong while getting attachments from GIS: {response}"
             )
-            return []
-        except JSONDecodeError as e:
-            logging.error(
-                f"Error when getting attachment from GIS server layer {layer_id}: {str(e)}"
-            )
-            logging.info(r.content)
-            return []
 
-    @retry(
-        (ConnectionError, HTTPError, JSONDecodeError),
-        tries=3,
-        delay=5,
-        logger=None,
-        backoff=2,
-    )
-    def upload_attachment_to_feature_layer(
-        self, layer_id, feature_id, file_type, file_name, file_content
-    ):
+        return None
+
+    def upload_attachment(
+            self,
+            layer_id,
+            feature_id,
+            file_type,
+            file_name,
+            file_content
+    ) -> Optional[int]:
         """
         Upload an attachment to a feature
 
@@ -373,40 +216,116 @@ class GISService:
         :rtype: int
         """
 
-        data = {"f": "json", "token": self.token}
-
         files = [("attachment", (file_name, file_content, file_type))]
 
-        try:
-            r = self.requests_session.post(
-                f"{self.arcgis_url}/{layer_id}/{feature_id}/addAttachment",
-                data=data,
-                files=files,
-            )
+        success, response = self._make_arcgis_request(
+            action="addAttachment",
+            feature_layer=layer_id,
+            feature_id=feature_id,
+            files=files
+        )
 
-            response = r.json()
-            if response.get("error", False):
-                logging.error(
-                    f"Error when uploading attachment to GIS server layer {layer_id}  - "
-                    f"server responded with status {response['error']['code']}: "
-                    f"{response['error']['message']}"
-                )
-                return None
-
+        if success:
             attachment_id = response["addAttachmentResult"]["objectId"]
             logging.debug(
-                f"Uploaded attachment {attachment_id} to feature with ID {feature_id}"
+                f"Uploaded attachment '{attachment_id}' to feature with ID '{feature_id}'."
+            )
+            return int(attachment_id)
+        else:
+            logging.error(
+                f"Something went wrong while uploading attachment to GIS: {response}"
             )
 
-            return int(attachment_id)
-        except ConnectionError as e:
+        return None
+
+    @classmethod
+    @retry(
+        (ConnectionError, HTTPError, JSONDecodeError),
+        tries=3,
+        delay=5,
+        logger=None,
+        backoff=2,
+    )
+    def _request_token(
+            cls,
+            username: str,
+            secret_key: str,
+            auth_url: str,
+            referer: str,
+            request: str = "gettoken",
+    ) -> (bool, str):
+        request_data = {
+            "f": "json",
+            "username": username,
+            "password": get_secret(os.environ["PROJECT_ID"], secret_key),
+            "request": request,
+            "referer": referer
+        }
+
+        try:
+            response = cls._REQUEST_SESSION.post(auth_url, data=request_data)
+            data = response.json()
+
+            if "error" in data:
+                return False, str(data["error"]["message"])
+
+        except Exception as e:
+            return False, str(e)
+
+        return True, str(data["token"])
+
+    def _query_features(self, feature_layer: int, query: str, out_fields: list) -> Optional[list]:
+        success, response = self._make_arcgis_request(
+            action="query",
+            feature_layer=feature_layer,
+            data={
+                "where": query,
+                "outFields": ",".join(out_fields)
+            }
+        )
+
+        if success:
+            return response["features"]
+        else:
             logging.error(
-                f"Connection error when uploading attachment to GIS server layer {layer_id}: {str(e)}"
+                f"Something went wrong while making a query to GIS: {response}"
             )
-            return None
-        except JSONDecodeError as e:
-            logging.error(
-                f"Error when uploading attachment to GIS server layer {layer_id}: {str(e)}"
-            )
-            logging.info(r.content)
-            return None
+
+        return None
+
+    @retry(
+        (ConnectionError, HTTPError, JSONDecodeError),
+        tries=3,
+        delay=5,
+        logger=None,
+        backoff=2,
+    )
+    def _make_arcgis_request(
+            self,
+            action: str,
+            feature_layer: int,
+            feature_id: int = None,
+            data: dict = None,
+            files: list = None
+    ) -> (bool, dict):
+        request_data = {"f": "json", "token": self.token}
+        if data:
+            request_data.update(data)
+
+        url = f"{self._arcgis_url}/{feature_layer}"
+        if feature_id is not None:
+            url = f"{url}/{feature_id}"
+
+        url = f"{url}/{action}"
+
+        try:
+            response = self._REQUEST_SESSION.post(url, data=request_data, files=files)
+            data = response.json()
+
+            if "error" in data:
+                return False, data["error"]
+
+        except Exception as e:
+            return False, dict(message=str(e))
+
+        return True, data

@@ -160,7 +160,7 @@ class TestGISService(unittest.TestCase):
 
         mock_post.return_value = self.mock_res
 
-        attachment = self.gis_service.upload_attachment_to_feature_layer(
+        attachment = self.gis_service.upload_attachment(
             1, 1, "text", "testfile", "this is some text to test the function"
         )
 
@@ -179,7 +179,7 @@ class TestGISService(unittest.TestCase):
 
         mock_post.return_value = self.mock_res
 
-        attachment = self.gis_service.upload_attachment_to_feature_layer(
+        attachment = self.gis_service.upload_attachment(
             1, 1, "text", "testfile", "this is some text to test the function"
         )
 
