@@ -19,12 +19,31 @@ class GISService:
     )
 
     def __init__(self, token: str, feature_server_url: str, disable_updated_at: bool = False):
+        """
+        Creates a new GIS service.
+
+        :param token: Authentication token.
+        :type token: str
+        :param feature_server_url: URL of the feature server.
+        :type feature_server_url: str
+        :param disable_updated_at: Disable timestamping of updates.
+        :type disable_updated_at: bool
+        """
         self._token = token
         self._feature_server_url = feature_server_url
         self._disable_updated_at = disable_updated_at
 
     @classmethod
     def from_configuration(cls, config: Configuration):
+        """
+        Creates a GISService from configuration.
+
+        :param config: The configuration to get the GIS (authorization-)settings from.
+        :type config: Configuration
+
+        :return: A GISService based on the specified configuration, or none if authentication failed.
+        :rtype: GISService | None
+        """
         success, response = cls.request_token(
             username=config.arcgis_auth.username,
             secret_key=get_secret(os.environ["PROJECT_ID"], config.arcgis_auth.secret),
@@ -151,10 +170,23 @@ class GISService:
 
         return data
 
-    def delete_attachments(self, layer_id: int, feature_id: int, attachment_ids: list) -> Optional[list]:
+    def delete_attachments(self, feature_layer: int, feature_id: int, attachment_ids: list) -> Optional[list]:
+        """
+        Deletes the attachments from the feature.
+
+        :param feature_layer: Feature layer id.
+        :type feature_layer: int
+        :param feature_id: Feature id.
+        :type feature_id: int
+        :param attachment_ids: List of attachment ids.
+        :type attachment_ids: list[int]
+
+        :return: A list of delete results, or none if request failed.
+        :rtype: list | None
+        """
         success, response = self._make_arcgis_request(
             action="deleteAttachments",
-            feature_layer=layer_id,
+            feature_layer=feature_layer,
             feature_id=feature_id,
             data={
                 "attachmentIds": ",".join(attachment_ids)
@@ -171,6 +203,17 @@ class GISService:
         return None
 
     def delete_features(self, feature_layer: int, feature_ids: list) -> Optional[list]:
+        """
+        Deletes the features and its attachments from the layer.
+
+        :param feature_layer: Feature layer id.
+        :type feature_layer: int
+        :param feature_ids: List of feature ids.
+        :type feature_ids: list[int]
+
+        :return: A list of delete results, or none if request failed.
+        :rtype: list | None
+        """
         for feature_id in feature_ids:
             attachments = self.get_attachments(feature_layer, feature_id)
             if attachments:
@@ -195,6 +238,17 @@ class GISService:
         return None
 
     def get_attachments(self, layer_id: int, feature_id: int) -> Optional[list]:
+        """
+        Returns a list of information on each attachment linked to the feature.
+
+        :param layer_id: Feature layer id.
+        :type layer_id: int
+        :param feature_id: Feature id.
+        :type feature_id: int
+
+        :return: A list of information on each attachment linked to the feature, or not if request failed.
+        :rtype: list | None
+        """
         success, response = self._make_arcgis_request(
             action="attachments",
             feature_layer=layer_id,
@@ -258,7 +312,20 @@ class GISService:
 
         return None
 
-    def get_feature_object_id_map(self, feature_layer: int, id_field: str, id_values: list):
+    def get_feature_object_id_map(self, feature_layer: int, id_field: str, id_values: list) -> dict:
+        """
+        Finds all features which 'id_field' value is in the 'id_values' list.
+        Then returns a map of each feature's 'id_field' and it's corresponding 'objectid'.
+
+        :param feature_layer: Feature layer id.
+        :type feature_layer: int
+        :param id_field: The field representing an id.
+        :type id_field: str
+        :param id_values: A list of values to be matched with the features' 'id_field' value.
+
+        :return: A map of each feature's 'id_field' and it's corresponding 'objectid'.
+        :rtype: dict
+        """
         id_values_string = ",".join(f"'{key}'" for key in id_values)
         features = self.query_features(
             feature_layer=feature_layer,
@@ -313,6 +380,19 @@ class GISService:
         return True, str(data["token"])
 
     def query_features(self, feature_layer: int, query: str, out_fields: list) -> Optional[list]:
+        """
+        Queries the feature layer.
+
+        :param feature_layer: Feature layer id.
+        :type feature_layer: int
+        :param query: The query to use on the feature layer.
+        :type query: str
+        :param out_fields: The fields to be present in the returned features attributes.
+        :type out_fields: list[str]
+
+        :return: A list of features that matched the query, or none when the query request fails.
+        :rtype: list | None
+        """
         success, response = self._make_arcgis_request(
             action="query",
             feature_layer=feature_layer,
