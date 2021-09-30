@@ -1,0 +1,1 @@
+This folder is intended for script that interact with the ArcGIS interface.
