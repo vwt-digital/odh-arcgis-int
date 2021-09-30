@@ -72,14 +72,9 @@ class MessageService:
             return "No Content", 204
 
         # Create ArcGIS service
-        gis_service = GISService(
-            self.config.arcgis_auth,
-            self.config.arcgis_feature_service.url,
-            self.config.arcgis_feature_service.id,
-            self.config.mapping.disable_updated_at,
-        )
+        gis_service = GISService.from_configuration(self.config)
 
-        if not gis_service.token:
+        if not gis_service:
             return "Service Unavailable", 503
 
         # Create Item Processor

@@ -9,6 +9,7 @@ from requests_retry_session import get_requests_session
 from retry import retry
 from typing import Optional
 from utils import get_secret
+from configuration import Configuration
 
 
 class GISService:
@@ -17,35 +18,30 @@ class GISService:
         retries=3, backoff=15, status_forcelist=(404, 500, 502, 503, 504)
     )
 
-    def __init__(self, arcgis_auth, arcgis_url, arcgis_name, disable_updated_at):
-        """
-        Initiates the GISService
-
-        :param arcgis_auth: The ArcGIS authentication object
-        :param arcgis_url: The ArcGIS feature layer URL
-        :type arcgis_url: str
-        :param arcgis_name: The ArcGIS feature name
-        :type arcgis_name: str
-        :param disable_updated_at: Disabled the addition of 'updated_at' field
-        :type disable_updated_at: boolean
-        """
-
-        self._arcgis_auth = arcgis_auth
-        self._arcgis_url = arcgis_url
-        self._arcgis_name = arcgis_name
+    def __init__(self, token: str, feature_server_url: str, disable_updated_at: bool = False):
+        self._token = token
+        self._feature_server_url = feature_server_url
         self._disable_updated_at = disable_updated_at
 
-        success, response = self._request_token(
-            arcgis_auth.username,
-            arcgis_auth.secret,
-            arcgis_url,
-            arcgis_auth.referer,
-            arcgis_auth.request
+    @classmethod
+    def from_configuration(cls, config: Configuration):
+        success, response = cls.request_token(
+            username=config.arcgis_auth.username,
+            secret_key=get_secret(os.environ["PROJECT_ID"], config.arcgis_auth.secret),
+            auth_url=config.arcgis_auth.url,
+            referer=config.arcgis_auth.referer,
+            request=config.arcgis_auth.request
         )
+
         if success:
-            self.token = response
+            return cls(
+                response,
+                config.arcgis_feature_service.url,
+                config.mapping.disable_updated_at  # Can be deprecated, never configured.
+            )
         else:
-            logging.error(f"Something went wrong when requesting GIS token: {response}")
+            logging.error(f"Could not login to ArcGIS: {response}")
+            return None
 
     def update_feature_layer(
             self,
@@ -122,7 +118,7 @@ class GISService:
         # Set data object
         data = {
             "f": "json",
-            "token": self.token,
+            "token": self._token,
         }
 
         # Set batch timestamp
@@ -170,6 +166,30 @@ class GISService:
         else:
             logging.error(
                 f"Something went wrong while deleting attachments from GIS: {response}"
+            )
+
+        return None
+
+    def delete_features(self, feature_layer: int, feature_ids: list) -> Optional[list]:
+        for feature_id in feature_ids:
+            attachments = self.get_attachments(feature_layer, feature_id)
+            if attachments:
+                attachment_ids = [int(attachment["id"]) for attachment in attachments]
+                self.delete_attachments(feature_layer, feature_id, attachment_ids)
+
+        success, response = self._make_arcgis_request(
+            action="deleteFeatures",
+            feature_layer=feature_layer,
+            data={
+                "objectIds": ", ".join(map(str, feature_ids))
+            }
+        )
+
+        if success:
+            return response["deleteResults"]
+        else:
+            logging.error(
+                f"Something went wrong while deleting features from GIS: {response}"
             )
 
         return None
@@ -246,18 +266,18 @@ class GISService:
         logger=None,
         backoff=2,
     )
-    def _request_token(
+    def request_token(
             cls,
             username: str,
-            secret_key: str,
-            auth_url: str,
-            referer: str,
+            password: str,
+            auth_url: str = "https://geoportaal.vwinfra.nl/portal/sharing/rest/generateToken",
+            referer: str = "https://geoportaal.vwinfra.nl/portal",
             request: str = "gettoken",
     ) -> (bool, str):
         request_data = {
             "f": "json",
             "username": username,
-            "password": get_secret(os.environ["PROJECT_ID"], secret_key),
+            "password": password,
             "request": request,
             "referer": referer
         }
@@ -308,11 +328,11 @@ class GISService:
             data: dict = None,
             files: list = None
     ) -> (bool, dict):
-        request_data = {"f": "json", "token": self.token}
+        request_data = {"f": "json", "token": self._token}
         if data:
             request_data.update(data)
 
-        url = f"{self._arcgis_url}/{feature_layer}"
+        url = f"{self._feature_server_url}/{feature_layer}"
         if feature_id is not None:
             url = f"{url}/{feature_id}"
 
