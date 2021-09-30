@@ -258,6 +258,24 @@ class GISService:
 
         return None
 
+    def get_feature_object_id_map(self, feature_layer: int, id_field: str, id_values: list):
+        id_values_string = ",".join(f"'{key}'" for key in id_values)
+        features = self.query_features(
+            feature_layer=feature_layer,
+            out_fields=["objectid", id_field],
+            query=f"{id_field} in ({id_values_string})"
+        )
+
+        feature_map = {}
+        if features:
+            for feature in features:
+                feature_id = feature["attributes"][id_field]
+                object_id = feature["attributes"]["objectid"]
+
+                feature_map[feature_id] = object_id
+
+        return feature_map
+
     @classmethod
     @retry(
         (ConnectionError, HTTPError, JSONDecodeError),
@@ -294,7 +312,7 @@ class GISService:
 
         return True, str(data["token"])
 
-    def _query_features(self, feature_layer: int, query: str, out_fields: list) -> Optional[list]:
+    def query_features(self, feature_layer: int, query: str, out_fields: list) -> Optional[list]:
         success, response = self._make_arcgis_request(
             action="query",
             feature_layer=feature_layer,
