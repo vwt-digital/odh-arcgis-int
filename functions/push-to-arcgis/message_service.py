@@ -4,7 +4,7 @@ import sys
 from attachment_service import AttachmentService
 from field_mapper import FieldMapperService
 from firestore_service import FirestoreService
-from gis_service import GISService
+from functions.common.gis_service import GISService
 
 
 class MessageService:

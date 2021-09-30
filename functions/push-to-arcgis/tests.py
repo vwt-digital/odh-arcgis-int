@@ -2,7 +2,7 @@ import unittest
 from unittest import mock
 
 from configuration import Configuration
-from gis_service import GISService
+from functions.common.gis_service import GISService
 
 config = Configuration()
 
