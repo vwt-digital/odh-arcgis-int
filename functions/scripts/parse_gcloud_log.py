@@ -21,8 +21,17 @@ arguments, unknown_arguments = parser.parse_known_args()
 
 
 def main() -> int:
-    with open(arguments.input, "r") as log_file:
-        data = json.load(log_file)
+    files = []
+    if arguments.input.is_dir():
+        files.extend(arguments.input.glob("**/*.json"))
+    else:
+        files.append(arguments.input)
+
+    data = []
+    for file in files:
+        with open(file, "r") as log_file:
+            for line in log_file:
+                data.append(json.loads(line))
 
     forms = []
     if arguments.output.exists():
