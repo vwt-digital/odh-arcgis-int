@@ -3,6 +3,7 @@ import json
 from functions.common.gis_service import GISService
 from argparse import ArgumentParser, RawTextHelpFormatter
 from pathlib import Path
+from functions.common.utils import get_secret
 
 parser = ArgumentParser(formatter_class=RawTextHelpFormatter)
 parser.add_argument(
@@ -19,11 +20,18 @@ parser.add_argument(
     help="ArcGIS username."
 )
 parser.add_argument(
-    "--password",
+    "--gcloud-project",
     type=str,
     required=True,
-    metavar="password",
-    help="ArcGIS password."
+    metavar="project",
+    help="gcloud project to get the secret from."
+)
+parser.add_argument(
+    "--gcloud-secret-key",
+    type=str,
+    required=True,
+    metavar="secret-key",
+    help="gcloud secret key for ArcGIS password."
 )
 parser.add_argument(
     "--service",
@@ -41,7 +49,7 @@ LAYER_ID = 0
 def main() -> int:
     success, response = GISService.request_token(
         arguments.username,
-        arguments.password
+        get_secret(arguments.gcloud_project, arguments.gcloud_secret_key)
     )
 
     if not success:
@@ -58,11 +66,10 @@ def main() -> int:
     feature_ids_to_delete = []
     for form in forms:
         key = form["key"]
-        if "feature_ids" in form:
-            feature_ids_to_delete = feature_ids_to_delete + form["feature_ids"]
+        if "feature_id" in form:
+            feature_ids_to_delete.append(form["feature_id"])
         else:
-            print(f"'{key}' does not have any 'object_ids', skipping...")
-            continue
+            print(f"'{key}' does not have any IDs, skipping...")
 
     if feature_ids_to_delete:
         gis_service.delete_features(LAYER_ID, feature_ids_to_delete)
