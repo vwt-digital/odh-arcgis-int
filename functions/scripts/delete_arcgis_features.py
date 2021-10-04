@@ -7,10 +7,10 @@ from functions.common.utils import get_secret
 
 parser = ArgumentParser(formatter_class=RawTextHelpFormatter)
 parser.add_argument(
-    "file",
+    "input",
     type=Path,
-    metavar="file",
-    help="the file with ids to delete"
+    metavar="input",
+    help="the file with IDs to delete"
 )
 parser.add_argument(
     "--username",

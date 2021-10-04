@@ -15,7 +15,7 @@ parser.add_argument(
 parser.add_argument(
     "output",
     type=Path,
-    metavar="file",
+    metavar="output",
     help="file to export the ids to."
 )
 parser.add_argument(
