@@ -3,13 +3,20 @@ import json
 from functions.common.gis_service import GISService
 from argparse import ArgumentParser, RawTextHelpFormatter
 from pathlib import Path
+from functions.common.utils import get_secret
 
 parser = ArgumentParser(formatter_class=RawTextHelpFormatter)
 parser.add_argument(
-    "file",
+    "input",
+    type=Path,
+    metavar="input",
+    help="file to get the keys from."
+)
+parser.add_argument(
+    "output",
     type=Path,
     metavar="file",
-    help="the file to add arcgis ids to."
+    help="file to export the ids to."
 )
 parser.add_argument(
     "--username",
@@ -19,30 +26,36 @@ parser.add_argument(
     help="ArcGIS username."
 )
 parser.add_argument(
-    "--password",
+    "--gcloud-project",
     type=str,
     required=True,
-    metavar="password",
-    help="ArcGIS password."
+    metavar="project",
+    help="gcloud project to get the secret from."
+)
+parser.add_argument(
+    "--gcloud-secret-key",
+    type=str,
+    required=True,
+    metavar="secret-key",
+    help="gcloud secret key for ArcGIS password."
 )
 parser.add_argument(
     "--service",
     type=str,
     required=True,
     metavar="service",
-    help="the feature service url"
+    help="the feature service url."
 )
 
 arguments, unknown_arguments = parser.parse_known_args()
 
-BOP_ATTACHMENT_PREFIX = "fca_FOTOBOP_locatie_"
 LAYER_ID = 0
 
 
 def main() -> int:
     success, response = GISService.request_token(
         arguments.username,
-        arguments.password
+        get_secret(arguments.gcloud_project, arguments.gcloud_secret_key)
     )
 
     if not success:
@@ -53,40 +66,32 @@ def main() -> int:
         arguments.service
     )
 
-    with open(arguments.file, "r") as input_file:
+    with open(arguments.input, "r") as input_file:
         forms = json.load(input_file)
 
     for form in forms:
         if "feature_ids" not in form:
+            key = form["key"]
             # Query all feature ids with a specific 'sleutel'.
             # NOTE: 'sleutel' is derived from an address.
             possible_feature_ids = gis_service.query_features(
                 feature_layer=LAYER_ID,
                 out_fields=["objectid"],
-                query=f"sleutel = '{form['key']}'"
+                query=f"sleutel = '{key}'"
             )
 
-            feature_ids = []
+            if possible_feature_ids is None:
+                print(f"Query failed for key '{key}', skipping...")
+            elif not possible_feature_ids:
+                print(f"No ids found for key '{key}', feature might have already been deleted.")
+            elif len(possible_feature_ids) != 1:
+                print(f"Key '{key}' has multiple ids {possible_feature_ids}, please check manually...")
+            else:
+                feature_id = possible_feature_ids[0]
+                form["feature_id"] = feature_id
 
-            # We need to make sure that the ID is not a BOP.
-            # This can theoretically be the case if an address has both a SCHOUW and BOP form.
-            for feature_id in possible_feature_ids:
-                is_bop = False
-                attachments = gis_service.get_attachments(LAYER_ID, feature_id)
-                # Check if attachments contain a BOP-type attachment.
-                for attachment in attachments:
-                    name = attachment["name"]
-                    if name.startswith(BOP_ATTACHMENT_PREFIX):
-                        is_bop = True
-                        break
-
-                if not is_bop:
-                    feature_ids.append(feature_id)
-
-            form["feature_ids"] = feature_ids
-
-    with open(arguments.file, "w") as input_file:
-        json.dump(forms, input_file, indent=4)
+    with open(arguments.output, "w") as output_file:
+        json.dump(forms, output_file, indent=4)
 
     return 0
 
