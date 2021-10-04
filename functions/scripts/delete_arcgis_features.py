@@ -72,7 +72,11 @@ def main() -> int:
             print(f"'{key}' does not have any IDs, skipping...")
 
     if feature_ids_to_delete:
-        gis_service.delete_features(LAYER_ID, feature_ids_to_delete)
+        result = gis_service.delete_features(LAYER_ID, feature_ids_to_delete)
+        if result:
+            print(result)
+        else:
+            print("Delete request failed...")
 
     return 0
 
