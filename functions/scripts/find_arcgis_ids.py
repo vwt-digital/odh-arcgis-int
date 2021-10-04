@@ -79,12 +79,13 @@ def main() -> int:
             query=f"sleutel = '{key}'"
         )
 
+        # Technically multiple IDs can be found, in that case we want to log and investigate them.
         if possible_feature_ids is None:
             print(f"Query failed for key '{key}', skipping...")
         elif not possible_feature_ids:
-            print(f"No ids found for key '{key}', feature might have already been deleted.")
+            print(f"No IDs found for key '{key}', feature might have already been deleted.")
         elif len(possible_feature_ids) != 1:
-            print(f"Key '{key}' has multiple ids {possible_feature_ids}, please check manually...")
+            print(f"Key '{key}' has multiple IDs {possible_feature_ids}, please check manually...")
         else:
             feature_id = possible_feature_ids[0]
             form["feature_id"] = feature_id
