@@ -70,25 +70,24 @@ def main() -> int:
         forms = json.load(input_file)
 
     for form in forms:
-        if "feature_ids" not in form:
-            key = form["key"]
-            # Query all feature ids with a specific 'sleutel'.
-            # NOTE: 'sleutel' is derived from an address.
-            possible_feature_ids = gis_service.query_features(
-                feature_layer=LAYER_ID,
-                out_fields=["objectid"],
-                query=f"sleutel = '{key}'"
-            )
+        key = form["key"]
+        # Query all feature ids with a specific 'sleutel'.
+        # NOTE: 'sleutel' is derived from an address.
+        possible_feature_ids = gis_service.query_features(
+            feature_layer=LAYER_ID,
+            out_fields=["objectid"],
+            query=f"sleutel = '{key}'"
+        )
 
-            if possible_feature_ids is None:
-                print(f"Query failed for key '{key}', skipping...")
-            elif not possible_feature_ids:
-                print(f"No ids found for key '{key}', feature might have already been deleted.")
-            elif len(possible_feature_ids) != 1:
-                print(f"Key '{key}' has multiple ids {possible_feature_ids}, please check manually...")
-            else:
-                feature_id = possible_feature_ids[0]
-                form["feature_id"] = feature_id
+        if possible_feature_ids is None:
+            print(f"Query failed for key '{key}', skipping...")
+        elif not possible_feature_ids:
+            print(f"No ids found for key '{key}', feature might have already been deleted.")
+        elif len(possible_feature_ids) != 1:
+            print(f"Key '{key}' has multiple ids {possible_feature_ids}, please check manually...")
+        else:
+            feature_id = possible_feature_ids[0]
+            form["feature_id"] = feature_id
 
     with open(arguments.output, "w") as output_file:
         json.dump(forms, output_file, indent=4)
