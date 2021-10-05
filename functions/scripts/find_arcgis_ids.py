@@ -87,7 +87,7 @@ def main() -> int:
         elif len(possible_feature_ids) != 1:
             print(f"Key '{key}' has multiple IDs {possible_feature_ids}, please check manually...")
         else:
-            feature_id = possible_feature_ids[0]
+            feature_id = possible_feature_ids[0]["attributes"]["objectid"]
             form["feature_id"] = feature_id
 
     with open(arguments.output, "w") as output_file:

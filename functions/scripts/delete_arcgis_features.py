@@ -60,7 +60,7 @@ def main() -> int:
         arguments.service
     )
 
-    with open(arguments.file, "r") as input_file:
+    with open(arguments.input, "r") as input_file:
         forms = json.load(input_file)
 
     feature_ids_to_delete = []

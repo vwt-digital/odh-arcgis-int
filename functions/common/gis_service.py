@@ -5,11 +5,11 @@ from datetime import datetime
 from json.decoder import JSONDecodeError
 
 from requests.exceptions import ConnectionError, HTTPError
-from requests_retry_session import get_requests_session
+from functions.common.requests_retry_session import get_requests_session
 from retry import retry
 from typing import Optional
-from utils import get_secret
-from configuration import Configuration
+from functions.common.utils import get_secret
+from functions.common.configuration import Configuration
 
 
 class GISService:
@@ -46,7 +46,7 @@ class GISService:
         """
         success, response = cls.request_token(
             username=config.arcgis_auth.username,
-            secret_key=get_secret(os.environ["PROJECT_ID"], config.arcgis_auth.secret),
+            password=get_secret(os.environ["PROJECT_ID"], config.arcgis_auth.secret),
             auth_url=config.arcgis_auth.url,
             referer=config.arcgis_auth.referer,
             request=config.arcgis_auth.request
@@ -189,7 +189,7 @@ class GISService:
             feature_layer=feature_layer,
             feature_id=feature_id,
             data={
-                "attachmentIds": ",".join(attachment_ids)
+                "attachmentIds": ",".join(map(str, attachment_ids))
             }
         )
 
