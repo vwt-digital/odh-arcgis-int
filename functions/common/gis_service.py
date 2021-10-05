@@ -5,11 +5,11 @@ from datetime import datetime
 from json.decoder import JSONDecodeError
 
 from requests.exceptions import ConnectionError, HTTPError
-from functions.common.requests_retry_session import get_requests_session
+from requests_retry_session import get_requests_session
 from retry import retry
 from typing import Optional
-from functions.common.utils import get_secret
-from functions.common.configuration import Configuration
+from utils import get_secret
+from configuration import Configuration
 
 
 class GISService:
