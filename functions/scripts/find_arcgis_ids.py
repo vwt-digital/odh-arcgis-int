@@ -3,8 +3,8 @@ import json
 from argparse import ArgumentParser, RawTextHelpFormatter
 from pathlib import Path
 
-from functions.common.gis_service import GISService
-from functions.common.utils import get_secret
+from gis_service import GISService
+from utils import get_secret
 
 parser = ArgumentParser(formatter_class=RawTextHelpFormatter)
 parser.add_argument(
