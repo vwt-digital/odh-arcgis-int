@@ -5,16 +5,17 @@ from datetime import datetime
 from json.decoder import JSONDecodeError
 
 from requests.exceptions import ConnectionError, HTTPError
-from .requests_retry_session import get_requests_session
 from retry import retry
 from typing import Optional
-from .utils import get_secret
-from .configuration import Configuration
+
+from . import configuration
+from . import requests_retry_session as request_session
+from . import utils
 
 
 class GISService:
 
-    _REQUEST_SESSION = get_requests_session(
+    _REQUEST_SESSION = request_session.get_requests_session(
         retries=3, backoff=15, status_forcelist=(404, 500, 502, 503, 504)
     )
 
@@ -34,7 +35,7 @@ class GISService:
         self._disable_updated_at = disable_updated_at
 
     @classmethod
-    def from_configuration(cls, config: Configuration):
+    def from_configuration(cls, config: configuration.Configuration):
         """
         Creates a GISService from configuration.
 
@@ -46,7 +47,7 @@ class GISService:
         """
         success, response = cls.request_token(
             username=config.arcgis_auth.username,
-            password=get_secret(os.environ["PROJECT_ID"], config.arcgis_auth.secret),
+            password=utils.get_secret(os.environ["PROJECT_ID"], config.arcgis_auth.secret),
             auth_url=config.arcgis_auth.url,
             referer=config.arcgis_auth.referer,
             request=config.arcgis_auth.request
