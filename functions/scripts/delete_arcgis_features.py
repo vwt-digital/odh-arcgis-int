@@ -49,7 +49,7 @@ LAYER_ID = 0
 def main() -> int:
     success, response = GISService.request_token(
         arguments.username,
-        get_secret(arguments.gcloud_project, arguments.gcloud_secret_key)
+        get_secret(arguments.gcloud_project, arguments.gcloud_secret_key).get_value()
     )
 
     if not success:

@@ -81,9 +81,14 @@ class ArcGISAuthConfiguration:
         return self._authentication.get("username", None)
 
     @property
-    def secret(self):
-        """ArcGIS authentication secret."""
-        return self._authentication.get("secret", None)
+    def password(self):
+        """ArcGIS authentication password."""
+        return self._authentication.get("password", None)
+
+    @property
+    def token(self):
+        """ArcGIS authentication token."""
+        return self._authentication.get("token", None)
 
     @property
     def request(self):
