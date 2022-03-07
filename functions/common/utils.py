@@ -1,6 +1,8 @@
 from datetime import datetime
 from dataclasses import dataclass
 
+from google.api_core.exceptions import PermissionDenied
+
 from google.cloud.secretmanager import (
     SecretManagerServiceClient as Client,
     GetSecretVersionRequest as GetRequest,
@@ -34,7 +36,7 @@ class Secret:
         return self.value.decode(encoding)
 
 
-def get_secret(project_id: str, secret_id: str, version: str = "latest") -> Secret:
+def get_secret(project_id: str, secret_id: str, version: str = "latest") -> Secret | None:
     """
     Returns a Secret Manager secret.
 
@@ -46,12 +48,17 @@ def get_secret(project_id: str, secret_id: str, version: str = "latest") -> Secr
     :type version: str
 
     :return: The secret.
-    :rtype: Secret
+    :rtype: Secret | None
     """
     client = Client()
     path = client.secret_version_path(project_id, secret_id, version)
 
-    secret_version_request = GetRequest(name=path)
+    try:
+        # Throws a PermissionDenied (403) when version does not exist
+        secret_version_request = GetRequest(name=path)
+    except PermissionDenied:
+        return None
+
     secret_version_access_request = AccessRequest(name=path)
 
     secret_version: Version = client.get_secret_version(request=secret_version_request)

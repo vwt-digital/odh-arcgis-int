@@ -46,32 +46,31 @@ class GISService:
         :rtype: GISService | None
         """
         secret_token: Secret = get_secret(os.environ["PROJECT_ID"], config.arcgis_auth.token)
+        is_token_expired = not secret_token or secret_token.create_time + timedelta(minutes=50) < datetime.now()
 
-        if secret_token:
-            is_token_expired = secret_token.create_time + timedelta(minutes=50) < datetime.now()
-            if is_token_expired:
-                success, response = cls.request_token(
-                    username=config.arcgis_auth.username,
-                    password=get_secret(os.environ["PROJECT_ID"], config.arcgis_auth.password).get_value(),
-                    auth_url=config.arcgis_auth.url,
-                    referer=config.arcgis_auth.referer,
-                    request=config.arcgis_auth.request
-                )
-
-                if success:
-                    token = response
-                    update_secret(os.environ["PROJECT_ID"], config.arcgis_auth.token, token.encode("UTF-8"))
-                else:
-                    logging.error(f"Could not login to ArcGIS: {response}")
-                    return None
-            else:
-                token = secret_token.get_value()
-
-            return cls(
-                token,
-                config.arcgis_feature_service.url,
-                config.mapping.disable_updated_at  # Can be deprecated, never configured.
+        if is_token_expired:
+            success, response = cls.request_token(
+                username=config.arcgis_auth.username,
+                password=get_secret(os.environ["PROJECT_ID"], config.arcgis_auth.password).get_value(),
+                auth_url=config.arcgis_auth.url,
+                referer=config.arcgis_auth.referer,
+                request=config.arcgis_auth.request
             )
+
+            if success:
+                token = response
+                update_secret(os.environ["PROJECT_ID"], config.arcgis_auth.token, token.encode("UTF-8"))
+            else:
+                logging.error(f"Could not login to ArcGIS: {response}")
+                return None
+        else:
+            token = secret_token.get_value()
+
+        return cls(
+            token,
+            config.arcgis_feature_service.url,
+            config.mapping.disable_updated_at  # Can be deprecated, never configured.
+        )
 
     def update_feature_layer(
             self,
