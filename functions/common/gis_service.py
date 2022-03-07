@@ -45,7 +45,7 @@ class GISService:
         :return: A GISService based on the specified configuration, or none if authentication failed.
         :rtype: GISService | None
         """
-        secret_token: Secret = get_secret(os.environ["PROJECT_ID"], config.arcgis_auth.secret)
+        secret_token: Secret = get_secret(os.environ["PROJECT_ID"], config.arcgis_auth.token)
 
         if secret_token:
             is_token_expired = secret_token.create_time + timedelta(minutes=50) < datetime.now()
@@ -60,7 +60,7 @@ class GISService:
 
                 if success:
                     token = response
-                    update_secret(os.environ["PROJECT_ID"], config.arcgis_auth.secret, token.encode("UTF-8"))
+                    update_secret(os.environ["PROJECT_ID"], config.arcgis_auth.token, token.encode("UTF-8"))
                 else:
                     logging.error(f"Could not login to ArcGIS: {response}")
                     return None
