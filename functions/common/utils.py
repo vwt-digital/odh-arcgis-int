@@ -52,20 +52,19 @@ def get_secret(project_id: str, secret_id: str, version: str = "latest") -> Secr
     path = client.secret_version_path(project_id, secret_id, version)
 
     try:
-        # Throws a PermissionDenied (403) when version does not exist
         secret_version_request = GetRequest(name=path)
+        secret_version_access_request = AccessRequest(name=path)
+
+        # Throws a PermissionDenied (403) when version does not exist
+        secret_version: Version = client.get_secret_version(request=secret_version_request)
+        secret_access: AccessResponse = client.access_secret_version(request=secret_version_access_request)
     except Exception:
         return None
 
-    secret_version_access_request = AccessRequest(name=path)
-
-    secret_version: Version = client.get_secret_version(request=secret_version_request)
-    secret_access: AccessResponse = client.access_secret_version(request=secret_version_access_request)
-
     return Secret(
         value=secret_access.payload.data,
-        create_time=secret_version.create_time.ToDatetime(),
-        destroy_time=secret_version.destroy_time.ToDatetime(),
+        create_time=secret_version.create_time,
+        destroy_time=secret_version.destroy_time,
         state=secret_version.state,
         replication_status=secret_version.replication_status
     )
