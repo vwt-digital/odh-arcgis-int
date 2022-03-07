@@ -34,7 +34,7 @@ class Secret:
         return self.value.decode(encoding)
 
 
-def get_secret(project_id: str, secret_id: str, version: str = "latest") -> Secret | None:
+def get_secret(project_id: str, secret_id: str, version: str = "latest") -> Secret:
     """
     Returns a Secret Manager secret.
 
