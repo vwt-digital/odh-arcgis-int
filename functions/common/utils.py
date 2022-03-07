@@ -80,7 +80,7 @@ def update_secret(project_id: str, secret_id: str, value: bytes) -> None:
     client = Client()
     path = client.secret_path(project_id, secret_id)
 
-    secret_payload = Payload(value)
-    secret_version_add_request = AddRequest(path, payload=secret_payload)
+    secret_payload = Payload(data=value)
+    secret_version_add_request = AddRequest(parent=path, payload=secret_payload)
 
     client.add_secret_version(request=secret_version_add_request)
