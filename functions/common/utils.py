@@ -51,8 +51,8 @@ def get_secret(project_id: str, secret_id: str, version: str = "latest") -> Secr
     client = Client()
     path = client.secret_version_path(project_id, secret_id, version)
 
-    secret_version_request = GetRequest(path)
-    secret_version_access_request = AccessRequest(path)
+    secret_version_request = GetRequest(name=path)
+    secret_version_access_request = AccessRequest(name=path)
 
     secret_version: Version = client.get_secret_version(request=secret_version_request)
     secret_access: AccessResponse = client.access_secret_version(request=secret_version_access_request)
