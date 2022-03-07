@@ -63,8 +63,8 @@ def get_secret(project_id: str, secret_id: str, version: str = "latest") -> Secr
 
     return Secret(
         value=secret_access.payload.data,
-        create_time=secret_version.create_time.ToDatetime(),
-        destroy_time=secret_version.destroy_time.ToDatetime(),
+        create_time=secret_version.create_time,
+        destroy_time=secret_version.destroy_time,
         state=secret_version.state,
         replication_status=secret_version.replication_status
     )
