@@ -46,7 +46,7 @@ class GISService:
         :rtype: GISService | None
         """
         secret_token: Secret = get_secret(os.environ["PROJECT_ID"], config.arcgis_auth.token)
-        is_token_expired = not secret_token or secret_token.create_time + timedelta(minutes=50) < datetime.now()
+        is_token_expired = not secret_token or secret_token.create_time + timedelta(minutes=50) < datetime.utcnow()
 
         if is_token_expired:
             success, response = cls.request_token(
