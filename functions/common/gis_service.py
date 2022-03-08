@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from json.decoder import JSONDecodeError
 
 from requests.exceptions import ConnectionError, HTTPError
@@ -46,7 +46,7 @@ class GISService:
         :rtype: GISService | None
         """
         secret_token: Secret = get_secret(os.environ["PROJECT_ID"], config.arcgis_auth.token)
-        is_token_expired = not secret_token or secret_token.create_time + timedelta(minutes=50) < datetime.utcnow()
+        is_token_expired = not secret_token or secret_token.create_time + timedelta(minutes=50) < datetime.now(timezone.utc)
 
         if is_token_expired:
             success, response = cls.request_token(
