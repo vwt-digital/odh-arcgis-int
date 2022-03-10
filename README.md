@@ -8,3 +8,4 @@ The following function can be found in this repository:
 
 ## License
 [GPL-3](https://www.gnu.org/licenses/gpl-3.0.en.html)
+

@@ -2,7 +2,7 @@ import base64
 import json
 import logging
 
-from configuration import Configuration
+from functions.common.configuration import Configuration
 from message_service import MessageService
 
 config = Configuration()

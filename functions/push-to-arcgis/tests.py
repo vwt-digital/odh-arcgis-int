@@ -1,8 +1,8 @@
 import unittest
 from unittest import mock
 
-from configuration import Configuration
-from gis_service import GISService
+from functions.common.configuration import Configuration
+from functions.common.gis_service import GISService
 
 config = Configuration()
 
@@ -34,12 +34,7 @@ class MockResponse:
 class TestGISService(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.gis_service = GISService(
-            config.arcgis_auth,
-            config.arcgis_feature_service.url,
-            config.arcgis_feature_service.id,
-            config.mapping.disable_updated_at,
-        )
+        cls.gis_service = GISService.from_configuration(config)
         cls.mock_res = MockResponse()
 
     @mock.patch("requests.Session.post")
@@ -54,14 +49,9 @@ class TestGISService(unittest.TestCase):
 
         mock_post.return_value = self.mock_res
 
-        gis_service = GISService(
-            config.arcgis_auth,
-            config.arcgis_feature_service.url,
-            config.arcgis_feature_service.id,
-            config.mapping.disable_updated_at,
-        )
+        gis_service = GISService.from_configuration(config)
 
-        self.assertEqual(res["token"], gis_service.token)
+        self.assertEqual(res["token"], gis_service._token)
 
     @mock.patch("requests.Session.post")
     def test_create_feature_success(self, mock_post):
@@ -160,7 +150,7 @@ class TestGISService(unittest.TestCase):
 
         mock_post.return_value = self.mock_res
 
-        attachment = self.gis_service.upload_attachment_to_feature_layer(
+        attachment = self.gis_service.upload_attachment(
             1, 1, "text", "testfile", "this is some text to test the function"
         )
 
@@ -179,7 +169,7 @@ class TestGISService(unittest.TestCase):
 
         mock_post.return_value = self.mock_res
 
-        attachment = self.gis_service.upload_attachment_to_feature_layer(
+        attachment = self.gis_service.upload_attachment(
             1, 1, "text", "testfile", "this is some text to test the function"
         )
 

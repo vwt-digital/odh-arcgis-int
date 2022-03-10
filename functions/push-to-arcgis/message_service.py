@@ -4,7 +4,7 @@ import sys
 from attachment_service import AttachmentService
 from field_mapper import FieldMapperService
 from firestore_service import FirestoreService
-from gis_service import GISService
+from functions.common.gis_service import GISService
 
 
 class MessageService:
@@ -72,14 +72,9 @@ class MessageService:
             return "No Content", 204
 
         # Create ArcGIS service
-        gis_service = GISService(
-            self.config.arcgis_auth,
-            self.config.arcgis_feature_service.url,
-            self.config.arcgis_feature_service.id,
-            self.config.mapping.disable_updated_at,
-        )
+        gis_service = GISService.from_configuration(self.config)
 
-        if not gis_service.token:
+        if not gis_service:
             return "Service Unavailable", 503
 
         # Create Item Processor
@@ -530,16 +525,16 @@ class MessageService:
 
                 # Check if attachments with filename already exist, if so, delete all.
                 logging.info("Checking for duplicate attachments.")
-                attachments = self.gis_service.get_attachments_from_feature_layer(layer_id, feature_id)
+                attachments = self.gis_service.get_attachments(layer_id, feature_id)
                 logging.info(f"Attachments: {attachments}")
                 attachments = [int(att["id"]) for att in attachments if att["name"] == file_name]
                 if attachments:
                     logging.info(f"Found {len(attachments)} duplicate attachments ({file_name}), let's delete them.")
-                    result = self.gis_service.delete_attachments_from_feature_layer(layer_id, feature_id, attachments)
+                    result = self.gis_service.delete_attachments(layer_id, feature_id, attachments)
                     logging.info(f"Deletion complete, results: {result}")
 
                 # Upload attachment to feature object
-                attachment_id = self.gis_service.upload_attachment_to_feature_layer(
+                attachment_id = self.gis_service.upload_attachment(
                     layer_id, feature_id, file_type, file_name, file_content
                 )
 
@@ -611,7 +606,7 @@ class MessageService:
             """
 
             if self.outer.config.existence_check.arcgis:
-                return self.gis_service.get_objectids_in_feature_layer(
+                return self.gis_service.get_feature_object_id_map(
                     layer_id, self.outer.config.mapping.id_field, id_values
                 )
 
